@@ -1,0 +1,26 @@
+{
+  "name": "sudoku-scanner",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "eslint": "eslint .",
+    "build": "webpack",
+    "start": "node server",
+    "start:dev": "webpack-dev-server"
+  },
+  "author": "Jonathan Taylor",
+  "license": "MIT",
+  "dependencies": {
+    "@tensorflow/tfjs": "^1.2.2",
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^5.0.3",
+    "eslint": "^6.0.1",
+    "html-webpack-plugin": "^3.2.0",
+    "webpack": "^4.35.3",
+    "webpack-cli": "^3.3.5",
+    "webpack-dev-server": "^3.7.2"
+  }
+}
