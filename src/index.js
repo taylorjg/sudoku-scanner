@@ -58,12 +58,14 @@ const drawGuides = () => {
   const svg = document.getElementById('guides')
   const w = svg.getBoundingClientRect().width
   const h = svg.getBoundingClientRect().height
-  const dw = w / 10
-  const dh = h / 10
-  const tl = createSvgElement('path', { d: `M${2 * dw},${dh} h${-dw} v${dh}`, class: 'guide' })
-  const tr = createSvgElement('path', { d: `M${8 * dw},${dh} h${dw} v${dh}`, class: 'guide' })
-  const bl = createSvgElement('path', { d: `M${2 * dw},${9 * dh} h${-dw} v${-dh}`, class: 'guide' })
-  const br = createSvgElement('path', { d: `M${8 * dw},${9 * dh} h${dw} v${-dh}`, class: 'guide' })
+  const ix = w * 0.05 // inset x
+  const iy = h * 0.05 // inset y
+  const ax = w * 0.1 // arm x
+  const ay = h * 0.1 // arm y
+  const tl = createSvgElement('path', { d: `M${ix + ax},${iy} h${-ax} v${ay}`, class: 'guide' })
+  const tr = createSvgElement('path', { d: `M${w - ix - ax},${iy} h${ax} v${ay}`, class: 'guide' })
+  const bl = createSvgElement('path', { d: `M${ix + ax},${h - iy} h${-ax} v${-ay}`, class: 'guide' })
+  const br = createSvgElement('path', { d: `M${w - ix - ax},${h - iy} h${ax} v${-ay}`, class: 'guide' })
   svg.appendChild(tl)
   svg.appendChild(tr)
   svg.appendChild(bl)
