@@ -26,6 +26,9 @@ module.exports = {
   ],
   devtool: 'source-map',
   devServer: {
-    contentBase: distFolder
+    contentBase: distFolder,
+    proxy: {
+      '/api': 'http://localhost:3060'
+    }
   }
 }

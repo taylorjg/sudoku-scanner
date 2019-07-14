@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Sudoku Scanner</title>
+  <title>Recognise scanned Sudoku puzzles using TensorFlow.js</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css" />
   <link rel="stylesheet" href="styles.css" />
@@ -17,6 +17,25 @@
       <hr />
     </div>
     <div cass="row">
+      <h1>Training</h1>
+      <button class="btn btn-primary btn-xs" disabled>Train</button>
+    </div>
+    <div cass="row">
+      <hr />
+    </div>
+    <div cass="row">
+      <h1>Prediction</h1>
+      <div>
+        <video id="video"></video>
+        <svg id="guides"></svg>
+        <canvas id="captured-image"></canvas>
+      </div>
+    </div>
+    <div cass="row">
+      <button id="startBtn" class="btn btn-default btn-xs">Start</button>
+      <button id="stopBtn" class="btn btn-default btn-xs">Stop</button>
+      <button id="captureBtn" class="btn btn-default btn-xs">Capture</button>
+      <button id="clearBtn" class="btn btn-danger btn-xs">Clear</button>
     </div>
   </div>
 </body>

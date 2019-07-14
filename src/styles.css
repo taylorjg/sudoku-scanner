@@ -6,3 +6,32 @@
   font-size: small;
   font-style: italic;
 }
+
+:root {
+  --video-size: 480px;
+}
+
+#video {
+  width: var(--video-size);
+  height: var(--video-size);
+  position: absolute;
+  border: 1px solid black;
+}
+
+#guides {
+  width: var(--video-size);
+  height: var(--video-size);
+  position: relative;
+}
+
+.guide {
+  stroke: black;
+  stroke-width: 5;
+  fill: none;
+}
+
+#captured-image {
+  width: var(--video-size);
+  height: var(--video-size);
+  border: 1px solid black;
+}
