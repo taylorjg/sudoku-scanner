@@ -1,0 +1,49 @@
+const fs = require('fs').promises
+const path = require('path')
+const R = require('ramda')
+const axios = require('axios')
+
+const RAW_IMAGES_FOLDER = path.resolve(__dirname, '..', 'scanned-images', 'raw')
+const PNG_EXT = '.png'
+
+const stringToIntegerOrUndefined = s => {
+  const n = Number(s)
+  return Number.isInteger(n) ? n : undefined
+}
+
+const numberToFileName = n =>
+  `${n.toString().padStart(5, 0)}${PNG_EXT}`
+
+const main = async () => {
+  try {
+    const startNumber = stringToIntegerOrUndefined(process.argv[2])
+    const endNumber = stringToIntegerOrUndefined(process.argv[3])
+    console.log(`[main] startNumber: ${startNumber}; endNumber: ${endNumber}`)
+    if (startNumber && endNumber && (startNumber <= endNumber)) {
+      const axiosInstance = axios.create({
+        baseURL: 'https://sudoku-scanner.herokuapp.com/rawImages',
+        responseType: 'arraybuffer'
+      })
+      const numbers = R.range(startNumber, endNumber + 1)
+      const fileNames = numbers.map(numberToFileName)
+      const urlPromises = fileNames.map(url => {
+        console.log(`Fetching ${url}`)
+        return axiosInstance.get(url)
+      })
+      const responses = await Promise.all(urlPromises)
+      const filePromises = responses.map((response, index) => {
+        const fileName = fileNames[index]
+        const fullFileName = path.resolve(RAW_IMAGES_FOLDER, fileName)
+        console.log(`Writing ${fullFileName}`)
+        return fs.writeFile(fullFileName, response.data)
+      })
+      await Promise.all(filePromises)
+    } else {
+      console.log(`[main] the program arguments don't look sensible`)
+    }
+  } catch (error) {
+    console.log(`[main] ERROR: ${error.message}`)
+  }
+}
+
+main()
