@@ -11,27 +11,35 @@
   --video-size: 480px;
 }
 
-#video {
+/* Video dimensions for larger screens */
+.video-dimesions {
   width: var(--video-size);
   height: var(--video-size);
+}
+
+/* Video dimensions for small screens */
+@media (max-width: 768px) {
+  .video-dimesions {
+    width: 90vw;
+    height: 90vw;
+  }
+}
+
+#video {
   position: absolute;
   border: 1px solid black;
 }
 
-#guides {
-  width: var(--video-size);
-  height: var(--video-size);
+#video-guides {
   position: relative;
 }
 
-.guide {
+.video-guide {
   stroke: black;
   stroke-width: 5;
   fill: none;
 }
 
 #captured-image {
-  width: var(--video-size);
-  height: var(--video-size);
   border: 1px solid black;
 }

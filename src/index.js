@@ -54,22 +54,21 @@ const createSvgElement = (elementName, additionalAttributes = {}) => {
   return element
 }
 
+const createVideoGuide = d =>
+  createSvgElement('path', { d, class: 'video-guide' })
+
 const drawGuides = () => {
-  const svg = document.getElementById('guides')
+  const svg = document.getElementById('video-guides')
   const w = svg.getBoundingClientRect().width
   const h = svg.getBoundingClientRect().height
   const ix = w * 0.05 // inset x
   const iy = h * 0.05 // inset y
   const ax = w * 0.1 // arm x
   const ay = h * 0.1 // arm y
-  const tl = createSvgElement('path', { d: `M${ix + ax},${iy} h${-ax} v${ay}`, class: 'guide' })
-  const tr = createSvgElement('path', { d: `M${w - ix - ax},${iy} h${ax} v${ay}`, class: 'guide' })
-  const bl = createSvgElement('path', { d: `M${ix + ax},${h - iy} h${-ax} v${-ay}`, class: 'guide' })
-  const br = createSvgElement('path', { d: `M${w - ix - ax},${h - iy} h${ax} v${-ay}`, class: 'guide' })
-  svg.appendChild(tl)
-  svg.appendChild(tr)
-  svg.appendChild(bl)
-  svg.appendChild(br)
+  svg.appendChild(createVideoGuide(`M${ix + ax},${iy} h${-ax} v${ay}`))
+  svg.appendChild(createVideoGuide(`M${w - ix - ax},${iy} h${ax} v${ay}`))
+  svg.appendChild(createVideoGuide(`M${ix + ax},${h - iy} h${-ax} v${-ay}`))
+  svg.appendChild(createVideoGuide(`M${w - ix - ax},${h - iy} h${ax} v${-ay}`))
 }
 
 const initialiseVideoCapture = async () => {
