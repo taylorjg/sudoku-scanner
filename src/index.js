@@ -83,6 +83,7 @@ const initialiseVideoCapture = async () => {
   const stopBtn = document.getElementById('stopBtn')
   const captureBtn = document.getElementById('captureBtn')
   const clearBtn = document.getElementById('clearBtn')
+  const messageArea = document.getElementById('messageArea')
 
   const updateButtonState = playing => {
     startBtn.disabled = playing
@@ -117,7 +118,8 @@ const initialiseVideoCapture = async () => {
     const imageBitmap = await createImageBitmap(videoElement)
     capturedImageElementContext.drawImage(imageBitmap, 0, 0)
     const dataUrl = capturedImageElement.toDataURL('image/png')
-    await axios.post('/api/saveImage', { dataUrl })
+    const response = await axios.post('/api/saveImage', { dataUrl })
+    messageArea.innerText = response.data
     onStop()
   }
 

@@ -10,32 +10,35 @@
 
 <body>
   <div class="container">
-    <div cass="row">
+    <div class="row">
       <div class="version pull-right">(version: <%= htmlWebpackPlugin.options.version %>)</div>
     </div>
-    <div cass="row">
+    <div class="row">
       <hr />
     </div>
-    <div cass="row">
+    <div class="row">
       <h1>Training</h1>
       <button class="btn btn-primary btn-xs" disabled>Train</button>
     </div>
-    <div cass="row">
+    <div class="row">
       <hr />
     </div>
-    <div cass="row">
+    <div class="row">
       <h1>Prediction</h1>
+      <div class="row">
+        <button id="startBtn" class="btn btn-default btn-xs">Start</button>
+        <button id="stopBtn" class="btn btn-default btn-xs">Stop</button>
+        <button id="captureBtn" class="btn btn-default btn-xs">Capture</button>
+        <button id="clearBtn" class="btn btn-danger btn-xs">Clear</button>
+      </div>
       <div>
         <video id="video" class="video-dimesions"></video>
         <svg id="video-guides" class="video-dimesions"></svg>
         <canvas id="captured-image" class="video-dimesions"></canvas>
       </div>
-    </div>
-    <div cass="row">
-      <button id="startBtn" class="btn btn-default btn-xs">Start</button>
-      <button id="stopBtn" class="btn btn-default btn-xs">Stop</button>
-      <button id="captureBtn" class="btn btn-default btn-xs">Capture</button>
-      <button id="clearBtn" class="btn btn-danger btn-xs">Clear</button>
+      <div class="row">
+        <pre id="messageArea"></pre>
+      </div>
     </div>
   </div>
 </body>
