@@ -94,7 +94,8 @@ const initialiseVideoCapture = async () => {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: videoElementRect.width,
-        height: videoElementRect.height
+        height: videoElementRect.height,
+        facingMode: 'environment'
       }
     })
     if (mediaStream) {
