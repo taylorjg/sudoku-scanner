@@ -36,8 +36,21 @@ const configureApiRouter = rawImagesFolder => {
     }
   }
 
+  const onListImages = async (req, res) => {
+    const fileNames = await fs.readdir(rawImagesFolder)
+    const filteredFileNames = fileNames
+      .filter(fileName => fileName.endsWith(PNG_EXT))
+      .filter(fileName => {
+        const basename = path.basename(fileName, PNG_EXT)
+        const number = Number(basename)
+        return Number.isInteger(number)
+      })
+    res.json(filteredFileNames)
+  }
+
   const apiRouter = express.Router()
   apiRouter.post('/saveImage', onSaveImage)
+  apiRouter.get('/listImages', onListImages)
   return apiRouter
 }
 
