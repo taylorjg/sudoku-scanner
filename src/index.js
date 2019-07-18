@@ -2,25 +2,28 @@ import * as tf from '@tensorflow/tfjs'
 import axios from 'axios'
 import trainData from '../data/train-data.json'
 
-const IMAGE_WIDTH = 224
-const IMAGE_HEIGHT = 224
-const CHANNELS = 1
+const drawImageTensors = (trainData, imageTensors) => {
+  const body = document.querySelector('body')
+  imageTensors.forEach(async (imageTensor, index) => {
+    const { boundingBox } = trainData[index]
+    const canvas = document.createElement('canvas')
+    await tf.browser.toPixels(imageTensor, canvas)
+    const ctx = canvas.getContext('2d')
+    ctx.strokeStyle = 'blue'
+    ctx.strokeRect(...boundingBox)
+    body.appendChild(canvas)
+  })
+}
 
 const getTrainData = async () => {
   const urls = trainData.map(el => el.url)
   const promises = urls.map(url => new Promise(resolve => {
     const image = new Image()
-    image.onload = () => {
-      const tensor = tf.browser.fromPixels(image)
-      const [width, height] = tensor.shape
-      resolve(tensor
-        .slice([0, 0, 0], [width, height, 1])
-        .toFloat()
-        .div(255))
-    }
+    image.onload = () => resolve(tf.browser.fromPixels(image, 1))
     image.src = url
   }))
   const imageTensors = await Promise.all(promises)
+  drawImageTensors(trainData, imageTensors)
   const xs = tf.stack(imageTensors)
   console.log(`xs - rank: ${xs.rank}; shape: ${xs.shape}; dtype: ${xs.dtype}`)
   const labels = tf.tensor2d(trainData.map(el => el.boundingBox), undefined, 'int32')
@@ -31,8 +34,9 @@ const getTrainData = async () => {
   }
 }
 
-const createModel = () => {
-  const inputShape = [IMAGE_WIDTH, IMAGE_HEIGHT, CHANNELS]
+const createModel = trainData => {
+  const [, W, H, C] = trainData.xs.shape
+  const inputShape = [W, H, C]
   const model = tf.sequential()
   model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 16, activation: 'relu' }))
   model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
@@ -46,19 +50,21 @@ const createModel = () => {
   return model
 }
 
-const train = async model => {
-  const trainData = await getTrainData()
+const train = async (model, trainData) => {
   model.compile({
     optimizer: 'rmsprop',
     loss: 'meanSquaredError'
   })
-  const args = {
-    batchSize: 10,
-    validationSplit: 0.2,
+  const params = {
+    // batchSize: 10,
+    // validationSplit: 0.2,
+    batchSize: 1,
+    validationSplit: 0,
     epochs: 10
   }
   // TODO: later, use model.fitDataset() ?
-  /* const history = */ await model.fit(trainData.xs, trainData.labels, args)
+  const history = await model.fit(trainData.xs, trainData.labels, params)
+  return history
 }
 
 const createSvgElement = (elementName, additionalAttributes = {}) => {
@@ -153,9 +159,10 @@ const initialiseVideoCapture = async () => {
 const main = async () => {
   drawGuides()
   await initialiseVideoCapture()
-  getTrainData()
-  // const model = createModel()
-  // await train(model)
+  const trainData = await getTrainData()
+  const model = createModel(trainData)
+  const history = await train(model, trainData)
+  console.dir(history)
   // const testData = await getTestData()
   // const testResult = model.evaluate(testData.xs, testData.labels)
 }
