@@ -1,15 +1,30 @@
 import * as tf from '@tensorflow/tfjs'
 import axios from 'axios'
+import trainData from '../data/train-data.json'
 
 const IMAGE_WIDTH = 224
 const IMAGE_HEIGHT = 224
 const CHANNELS = 1
 
 const getTrainData = async () => {
-  // Tensor4D: [numTrainExamples, 224, 224, 1]
-  const xs = []
-  // Tensor2D: [numTrainExamples, 4]
-  const labels = []
+  const urls = trainData.map(el => el.url)
+  const promises = urls.map(url => new Promise(resolve => {
+    const image = new Image()
+    image.onload = () => {
+      const tensor = tf.browser.fromPixels(image)
+      const [width, height] = tensor.shape
+      resolve(tensor
+        .slice([0, 0, 0], [width, height, 1])
+        .toFloat()
+        .div(255))
+    }
+    image.src = url
+  }))
+  const imageTensors = await Promise.all(promises)
+  const xs = tf.stack(imageTensors)
+  console.log(`xs - rank: ${xs.rank}; shape: ${xs.shape}; dtype: ${xs.dtype}`)
+  const labels = tf.tensor2d(trainData.map(el => el.boundingBox), undefined, 'int32')
+  console.log(`labels - rank: ${labels.rank}; shape: ${labels.shape}; dtype: ${labels.dtype}`)
   return {
     xs,
     labels
@@ -138,6 +153,7 @@ const initialiseVideoCapture = async () => {
 const main = async () => {
   drawGuides()
   await initialiseVideoCapture()
+  getTrainData()
   // const model = createModel()
   // await train(model)
   // const testData = await getTestData()

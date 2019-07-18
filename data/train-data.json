@@ -1,0 +1,32 @@
+[
+    {
+        "puzzleId": 1,
+        "url": "/normalisedImages/00001.png",
+        "boundingBox": [
+            21,
+            15,
+            190,
+            192
+        ]
+    },
+    {
+        "puzzleId": 2,
+        "url": "/normalisedImages/00002.png",
+        "boundingBox": [
+            19,
+            19,
+            192,
+            192
+        ]
+    },
+    {
+        "puzzleId": 3,
+        "url": "/normalisedImages/00003.png",
+        "boundingBox": [
+            22,
+            23,
+            186,
+            187
+        ]
+    }
+]

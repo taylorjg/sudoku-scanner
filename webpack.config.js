@@ -28,7 +28,9 @@ module.exports = {
   devServer: {
     contentBase: distFolder,
     proxy: {
-      '/api': 'http://localhost:3060'
+      '/api': 'http://localhost:3060',
+      '/rawImages': 'http://localhost:3060',
+      '/normalisedImages': 'http://localhost:3060'
     }
   }
 }
