@@ -1,6 +1,24 @@
 import * as tf from '@tensorflow/tfjs'
+import * as R from 'ramda'
 import axios from 'axios'
 import trainData from '../data/train-data.json'
+
+const inset = (x, y, w, h, dx, dy) =>
+  [x + dx, y + dy, w - 2 * dx, h - 2 * dy]
+
+const drawDigitBoxes = (ctx, boundingBox) => {
+  const [bbx, bby, bbw, bbh] = boundingBox
+  const digitw = bbw / 9
+  const digith = bbh / 9
+  for (const col of R.range(0, 9)) {
+    const x = bbx + col * digitw
+    for (const row of R.range(0, 9)) {
+      const y = bby + row * digith
+      ctx.strokeStyle = 'red'
+      ctx.strokeRect(...inset(x, y, digitw, digith, digitw / 10, digith / 10))
+    }
+  }
+}
 
 const drawImageTensors = (trainData, imageTensors) => {
   const body = document.querySelector('body')
@@ -11,6 +29,7 @@ const drawImageTensors = (trainData, imageTensors) => {
     const ctx = canvas.getContext('2d')
     ctx.strokeStyle = 'blue'
     ctx.strokeRect(...boundingBox)
+    drawDigitBoxes(ctx, boundingBox)
     body.appendChild(canvas)
   })
 }
@@ -63,8 +82,7 @@ const train = async (model, trainData) => {
     epochs: 10
   }
   // TODO: later, use model.fitDataset() ?
-  const history = await model.fit(trainData.xs, trainData.labels, params)
-  return history
+  return model.fit(trainData.xs, trainData.labels, params)
 }
 
 const createSvgElement = (elementName, additionalAttributes = {}) => {
@@ -121,7 +139,6 @@ const initialiseVideoCapture = async () => {
       }
     })
     if (mediaStream) {
-      console.log(mediaStream)
       videoElement.srcObject = mediaStream
       videoElement.play()
       updateButtonState(true)
