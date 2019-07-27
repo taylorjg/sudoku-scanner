@@ -1,7 +1,7 @@
 import * as tf from '@tensorflow/tfjs'
 import * as R from 'ramda'
 import axios from 'axios'
-import trainData from '../data/train-data.json'
+import trainingData from '../data/training-data.json'
 
 const inset = (x, y, w, h, dx, dy) =>
   [x + dx, y + dy, w - 2 * dx, h - 2 * dy]
@@ -34,27 +34,30 @@ const drawImageTensors = (trainData, imageTensors) => {
   })
 }
 
-const getTrainData = async () => {
-  const urls = trainData.map(el => el.url)
-  const promises = urls.map(url => new Promise(resolve => {
+const loadImage = url =>
+  new Promise(resolve => {
     const image = new Image()
     image.onload = () => resolve(tf.browser.fromPixels(image, 1))
     image.src = url
-  }))
+  })
+
+const loadData = async data => {
+  const urls = data.map(datum => datum.url)
+  const promises = urls.map(loadImage)
   const imageTensors = await Promise.all(promises)
-  drawImageTensors(trainData, imageTensors)
+  drawImageTensors(data, imageTensors)
   const xs = tf.stack(imageTensors)
+  const ys = tf.tensor2d(data.map(datum => datum.boundingBox), undefined, 'int32')
   console.log(`xs - rank: ${xs.rank}; shape: ${xs.shape}; dtype: ${xs.dtype}`)
-  const labels = tf.tensor2d(trainData.map(el => el.boundingBox), undefined, 'int32')
-  console.log(`labels - rank: ${labels.rank}; shape: ${labels.shape}; dtype: ${labels.dtype}`)
-  return {
-    xs,
-    labels
-  }
+  console.log(`ys - rank: ${ys.rank}; shape: ${ys.shape}; dtype: ${ys.dtype}`)
+  return { xs, ys }
 }
 
-const createModel = trainData => {
-  const [, W, H, C] = trainData.xs.shape
+const loadTrainingData = () => loadData(trainingData)
+// const loadTestData = () => loadData(testData)
+
+const createModel = trainingData => {
+  const [, W, H, C] = trainingData.xs.shape
   const inputShape = [W, H, C]
   const model = tf.sequential()
   model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 16, activation: 'relu' }))
@@ -69,7 +72,7 @@ const createModel = trainData => {
   return model
 }
 
-const train = async (model, trainData) => {
+const train = async (model, trainingData) => {
   model.compile({
     optimizer: 'rmsprop',
     loss: 'meanSquaredError'
@@ -82,7 +85,7 @@ const train = async (model, trainData) => {
     epochs: 10
   }
   // TODO: later, use model.fitDataset() ?
-  return model.fit(trainData.xs, trainData.labels, params)
+  return model.fit(trainingData.xs, trainingData.ys, params)
 }
 
 const createSvgElement = (elementName, additionalAttributes = {}) => {
@@ -98,19 +101,19 @@ const createVideoGuide = d =>
 
 const drawGuides = () => {
   const svg = document.getElementById('video-guides')
-  const w = svg.getBoundingClientRect().width
-  const h = svg.getBoundingClientRect().height
-  const ix = w * 0.05 // inset x
-  const iy = h * 0.05 // inset y
-  const ax = w * 0.1 // arm x
-  const ay = h * 0.1 // arm y
-  svg.appendChild(createVideoGuide(`M${ix + ax},${iy} h${-ax} v${ay}`))
-  svg.appendChild(createVideoGuide(`M${w - ix - ax},${iy} h${ax} v${ay}`))
-  svg.appendChild(createVideoGuide(`M${ix + ax},${h - iy} h${-ax} v${-ay}`))
-  svg.appendChild(createVideoGuide(`M${w - ix - ax},${h - iy} h${ax} v${-ay}`))
+  const wRect = svg.getBoundingClientRect().width
+  const hRect = svg.getBoundingClientRect().height
+  const wInset = wRect * 0.05
+  const hInset = hRect * 0.05
+  const wArm = wRect * 0.1
+  const hArm = hRect * 0.1
+  svg.appendChild(createVideoGuide(`M${wInset + wArm},${hInset} h${-wArm} v${hArm}`))
+  svg.appendChild(createVideoGuide(`M${wRect - wInset - wArm},${hInset} h${wArm} v${hArm}`))
+  svg.appendChild(createVideoGuide(`M${wInset + wArm},${hRect - hInset} h${-wArm} v${-hArm}`))
+  svg.appendChild(createVideoGuide(`M${wRect - wInset - wArm},${hRect - hInset} h${wArm} v${-hArm}`))
 }
 
-const initialiseVideoCapture = async () => {
+const initialiseCamera = async () => {
 
   const videoElement = document.getElementById('video')
   const videoElementRect = videoElement.getBoundingClientRect()
@@ -121,6 +124,7 @@ const initialiseVideoCapture = async () => {
   const startBtn = document.getElementById('startBtn')
   const stopBtn = document.getElementById('stopBtn')
   const captureBtn = document.getElementById('captureBtn')
+  const saveBtn = document.getElementById('saveBtn')
   const clearBtn = document.getElementById('clearBtn')
   const messageArea = document.getElementById('messageArea')
 
@@ -155,33 +159,49 @@ const initialiseVideoCapture = async () => {
   const onCapture = async () => {
     const imageBitmap = await createImageBitmap(videoElement)
     capturedImageElementContext.drawImage(imageBitmap, 0, 0)
+    onStop()
+  }
+
+  const onSave = async () => {
     const dataUrl = capturedImageElement.toDataURL('image/png')
     const response = await axios.post('/api/saveImage', { dataUrl })
     messageArea.innerText = response.data
-    onStop()
   }
 
   const onClear = () => {
     capturedImageElementContext.clearRect(0, 0, capturedImageElement.width, capturedImageElement.height)
+    messageArea.innerText = ''
   }
 
   startBtn.addEventListener('click', onStart)
   stopBtn.addEventListener('click', onStop)
   captureBtn.addEventListener('click', onCapture)
+  saveBtn.addEventListener('click', onSave)
   clearBtn.addEventListener('click', onClear)
 
   updateButtonState(false)
 }
 
+const onTrain = async () => {
+  try {
+    trainBtn.disabled = true
+    const trainData = await loadTrainingData()
+    const model = createModel(trainData)
+    const history = await train(model, trainData)
+    console.dir(history)
+    // const testData = await getTestData()
+    // const testResult = model.evaluate(testData.xs, testData.labels)
+  } finally {
+    trainBtn.disabled = false
+  }
+}
+
+const trainBtn = document.getElementById('trainBtn')
+trainBtn.addEventListener('click', onTrain)
+
 const main = async () => {
   drawGuides()
-  await initialiseVideoCapture()
-  const trainData = await getTrainData()
-  const model = createModel(trainData)
-  const history = await train(model, trainData)
-  console.dir(history)
-  // const testData = await getTestData()
-  // const testResult = model.evaluate(testData.xs, testData.labels)
+  initialiseCamera()
 }
 
 main()
