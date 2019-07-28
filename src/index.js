@@ -50,12 +50,23 @@ const drawImageTensor = async (imageTensor, boundingBox) => {
 //   })
 // }
 
-const loadImage = url =>
-  new Promise(resolve => {
+const IMAGE_CACHE = {}
+
+const loadImage = async url => {
+  const existingImageTensor = IMAGE_CACHE[url]
+  if (existingImageTensor) return existingImageTensor
+  const promise = new Promise(resolve => {
+    console.log(`Loading ${url}`)
     const image = new Image()
     image.onload = () => resolve(tf.browser.fromPixels(image, IMAGE_CHANNELS))
     image.src = url
   })
+  const imageTensor = await promise
+  /* eslint-disable require-atomic-updates */
+  IMAGE_CACHE[url] = imageTensor
+  /* eslint-enable require-atomic-updates */
+  return imageTensor
+}
 
 // const loadData = async data => {
 //   const urls = data.map(datum => datum.url)
@@ -71,12 +82,20 @@ const loadImage = url =>
 
 // const loadTrainingData = () => loadData(trainingData)
 
+const BATCH_SIZE = 1
+
 async function* trainingDataGenerator() {
-  for (const { url, boundingBox } of trainingData) {
-    const imageTensor = await loadImage(url)
-    drawImageTensor(imageTensor, boundingBox)
-    const xs = tf.stack([imageTensor])
-    const ys = tf.tensor2d([boundingBox], undefined, 'int32')
+  const batches = R.splitEvery(BATCH_SIZE, trainingData)
+  for (const batch of batches) {
+    const urls = batch.map(item => item.url)
+    const promises = urls.map(loadImage)
+    const imageTensors = await Promise.all(promises)
+    imageTensors.forEach((imageTensor, index) => {
+      const boundingBox = batch[index].boundingBox
+      drawImageTensor(imageTensor, boundingBox)
+    })
+    const xs = tf.stack(imageTensors)
+    const ys = tf.tensor2d(batch.map(item => item.boundingBox), undefined, 'int32')
     yield { xs, ys }
   }
 }
