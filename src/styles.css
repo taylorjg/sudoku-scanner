@@ -12,14 +12,14 @@
 }
 
 /* Video dimensions for larger screens */
-.video-dimesions {
+.video-dimensions {
   width: var(--video-size);
   height: var(--video-size);
 }
 
 /* Video dimensions for small screens */
 @media (max-width: 768px) {
-  .video-dimesions {
+  .video-dimensions {
     width: 90vw;
     height: 90vw;
     display: inline-block;

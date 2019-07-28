@@ -166,11 +166,15 @@ const initialiseCamera = async () => {
   const saveBtn = document.getElementById('saveBtn')
   const clearBtn = document.getElementById('clearBtn')
   const messageArea = document.getElementById('messageArea')
+  let imageBitmap = undefined
 
-  const updateButtonState = playing => {
+  const updateButtonState = () => {
+    const playing = !!videoElement.srcObject
     startBtn.disabled = playing
     stopBtn.disabled = !playing
     captureBtn.disabled = !playing
+    saveBtn.disabled = !imageBitmap
+    clearBtn.disabled = !imageBitmap
   }
 
   const onStart = async () => {
@@ -184,7 +188,7 @@ const initialiseCamera = async () => {
     if (mediaStream) {
       videoElement.srcObject = mediaStream
       videoElement.play()
-      updateButtonState(true)
+      updateButtonState()
     }
   }
 
@@ -192,11 +196,11 @@ const initialiseCamera = async () => {
     const mediaStream = videoElement.srcObject
     mediaStream.getVideoTracks()[0].stop()
     videoElement.srcObject = null
-    updateButtonState(false)
+    updateButtonState()
   }
 
   const onCapture = async () => {
-    const imageBitmap = await createImageBitmap(videoElement)
+    imageBitmap = await createImageBitmap(videoElement)
     capturedImageElementContext.drawImage(imageBitmap, 0, 0)
     onStop()
   }
@@ -209,7 +213,9 @@ const initialiseCamera = async () => {
 
   const onClear = () => {
     capturedImageElementContext.clearRect(0, 0, capturedImageElement.width, capturedImageElement.height)
+    imageBitmap = undefined
     messageArea.innerText = ''
+    updateButtonState()
   }
 
   startBtn.addEventListener('click', onStart)
@@ -218,7 +224,7 @@ const initialiseCamera = async () => {
   saveBtn.addEventListener('click', onSave)
   clearBtn.addEventListener('click', onClear)
 
-  updateButtonState(false)
+  updateButtonState()
 }
 
 const onTrain = async () => {
