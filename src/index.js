@@ -3,6 +3,10 @@ import * as R from 'ramda'
 import axios from 'axios'
 import trainingData from '../data/training-data.json'
 
+const IMAGE_WIDTH = 224
+const IMAGE_HEIGHT = 224
+const IMAGE_CHANNELS = 1
+
 const inset = (x, y, w, h, dx, dy) =>
   [x + dx, y + dy, w - 2 * dx, h - 2 * dy]
 
@@ -20,45 +24,65 @@ const drawDigitBoxes = (ctx, boundingBox) => {
   }
 }
 
-const drawImageTensors = (trainData, imageTensors) => {
+const drawImageTensor = async (imageTensor, boundingBox) => {
+  const canvas = document.createElement('canvas')
+  await tf.browser.toPixels(imageTensor, canvas)
+  const ctx = canvas.getContext('2d')
+  ctx.strokeStyle = 'blue'
+  ctx.strokeRect(...boundingBox)
+  drawDigitBoxes(ctx, boundingBox)
   const body = document.querySelector('body')
-  imageTensors.forEach(async (imageTensor, index) => {
-    const { boundingBox } = trainData[index]
-    const canvas = document.createElement('canvas')
-    await tf.browser.toPixels(imageTensor, canvas)
-    const ctx = canvas.getContext('2d')
-    ctx.strokeStyle = 'blue'
-    ctx.strokeRect(...boundingBox)
-    drawDigitBoxes(ctx, boundingBox)
-    body.appendChild(canvas)
-  })
+  body.appendChild(canvas)
 }
+
+// const drawImageTensors = (trainData, imageTensors) => {
+//   const body = document.querySelector('body')
+//   imageTensors.forEach(async (imageTensor, index) => {
+//     drawImageTensor(imageTensor)
+//     const { boundingBox } = trainData[index]
+//     const canvas = document.createElement('canvas')
+//     await tf.browser.toPixels(imageTensor, canvas)
+//     const ctx = canvas.getContext('2d')
+//     ctx.strokeStyle = 'blue'
+//     ctx.strokeRect(...boundingBox)
+//     drawDigitBoxes(ctx, boundingBox)
+//     body.appendChild(canvas)
+//   })
+// }
 
 const loadImage = url =>
   new Promise(resolve => {
     const image = new Image()
-    image.onload = () => resolve(tf.browser.fromPixels(image, 1))
+    image.onload = () => resolve(tf.browser.fromPixels(image, IMAGE_CHANNELS))
     image.src = url
   })
 
-const loadData = async data => {
-  const urls = data.map(datum => datum.url)
-  const promises = urls.map(loadImage)
-  const imageTensors = await Promise.all(promises)
-  drawImageTensors(data, imageTensors)
-  const xs = tf.stack(imageTensors)
-  const ys = tf.tensor2d(data.map(datum => datum.boundingBox), undefined, 'int32')
-  console.log(`xs - rank: ${xs.rank}; shape: ${xs.shape}; dtype: ${xs.dtype}`)
-  console.log(`ys - rank: ${ys.rank}; shape: ${ys.shape}; dtype: ${ys.dtype}`)
-  return { xs, ys }
+// const loadData = async data => {
+//   const urls = data.map(datum => datum.url)
+//   const promises = urls.map(loadImage)
+//   const imageTensors = await Promise.all(promises)
+//   drawImageTensors(data, imageTensors)
+//   const xs = tf.stack(imageTensors)
+//   const ys = tf.tensor2d(data.map(datum => datum.boundingBox), undefined, 'int32')
+//   console.log(`xs - rank: ${xs.rank}; shape: ${xs.shape}; dtype: ${xs.dtype}`)
+//   console.log(`ys - rank: ${ys.rank}; shape: ${ys.shape}; dtype: ${ys.dtype}`)
+//   return { xs, ys }
+// }
+
+// const loadTrainingData = () => loadData(trainingData)
+
+async function* trainingDataGenerator() {
+  for (const { url, boundingBox } of trainingData) {
+    const imageTensor = await loadImage(url)
+    drawImageTensor(imageTensor, boundingBox)
+    const xs = tf.stack([imageTensor])
+    const ys = tf.tensor2d([boundingBox], undefined, 'int32')
+    yield { xs, ys }
+  }
 }
 
-const loadTrainingData = () => loadData(trainingData)
-// const loadTestData = () => loadData(testData)
-
-const createModel = trainingData => {
-  const [, W, H, C] = trainingData.xs.shape
-  const inputShape = [W, H, C]
+const createModel = () => {
+  const inputShape = [IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_CHANNELS]
   const model = tf.sequential()
   model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 16, activation: 'relu' }))
   model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
@@ -72,20 +96,16 @@ const createModel = trainingData => {
   return model
 }
 
-const train = async (model, trainingData) => {
+const train = async model => {
   model.compile({
     optimizer: 'rmsprop',
     loss: 'meanSquaredError'
   })
   const params = {
-    // batchSize: 10,
-    // validationSplit: 0.2,
-    batchSize: 1,
-    validationSplit: 0,
     epochs: 10
   }
-  // TODO: later, use model.fitDataset() ?
-  return model.fit(trainingData.xs, trainingData.ys, params)
+  const ds = tf.data.generator(trainingDataGenerator)
+  return model.fitDataset(ds, params)
 }
 
 const createSvgElement = (elementName, additionalAttributes = {}) => {
@@ -185,9 +205,8 @@ const initialiseCamera = async () => {
 const onTrain = async () => {
   try {
     trainBtn.disabled = true
-    const trainData = await loadTrainingData()
-    const model = createModel(trainData)
-    const history = await train(model, trainData)
+    const model = createModel()
+    const history = await train(model)
     console.dir(history)
     // const testData = await getTestData()
     // const testResult = model.evaluate(testData.xs, testData.labels)
