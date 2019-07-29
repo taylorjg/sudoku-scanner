@@ -50,10 +50,10 @@ const drawImageTensor = async (imageTensor, boundingBox) => {
 //   })
 // }
 
-const IMAGE_CACHE = {}
+const IMAGE_CACHE = new Map()
 
 const loadImage = async url => {
-  const existingImageTensor = IMAGE_CACHE[url]
+  const existingImageTensor = IMAGE_CACHE.get(url)
   if (existingImageTensor) return existingImageTensor
   const promise = new Promise(resolve => {
     console.log(`Loading ${url}`)
@@ -62,9 +62,7 @@ const loadImage = async url => {
     image.src = url
   })
   const imageTensor = await promise
-  /* eslint-disable require-atomic-updates */
-  IMAGE_CACHE[url] = imageTensor
-  /* eslint-enable require-atomic-updates */
+  IMAGE_CACHE.set(url, imageTensor)
   return imageTensor
 }
 
@@ -85,6 +83,7 @@ const loadImage = async url => {
 const BATCH_SIZE = 1
 
 async function* trainingDataGenerator() {
+  tf.util.shuffle(trainingData)
   const batches = R.splitEvery(BATCH_SIZE, trainingData)
   for (const batch of batches) {
     const urls = batch.map(item => item.url)

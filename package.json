@@ -1,6 +1,6 @@
 {
   "name": "sudoku-scanner",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Train a model to recognise a Sudoku puzzle from a scanned image",
   "main": "index.js",
   "scripts": {
