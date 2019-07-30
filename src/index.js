@@ -3,6 +3,11 @@ import * as R from 'ramda'
 import axios from 'axios'
 import trainingData from '../data/training-data.json'
 
+let trained = false
+let model = undefined
+let imageBitmap = undefined
+let imageData = undefined
+
 const IMAGE_WIDTH = 224
 const IMAGE_HEIGHT = 224
 const IMAGE_CHANNELS = 1
@@ -89,10 +94,10 @@ async function* trainingDataGenerator() {
     const urls = batch.map(item => item.url)
     const promises = urls.map(loadImage)
     const imageTensors = await Promise.all(promises)
-    imageTensors.forEach((imageTensor, index) => {
-      const boundingBox = batch[index].boundingBox
-      drawImageTensor(imageTensor, boundingBox)
-    })
+    // imageTensors.forEach((imageTensor, index) => {
+    //   const boundingBox = batch[index].boundingBox
+    //   drawImageTensor(imageTensor, boundingBox)
+    // })
     const xs = tf.stack(imageTensors)
     const ys = tf.tensor2d(batch.map(item => item.boundingBox), undefined, 'int32')
     yield { xs, ys }
@@ -165,7 +170,6 @@ const initialiseCamera = async () => {
   const saveBtn = document.getElementById('saveBtn')
   const clearBtn = document.getElementById('clearBtn')
   const messageArea = document.getElementById('messageArea')
-  let imageBitmap = undefined
 
   const updateButtonState = () => {
     const playing = !!videoElement.srcObject
@@ -174,6 +178,8 @@ const initialiseCamera = async () => {
     captureBtn.disabled = !playing
     saveBtn.disabled = !imageBitmap
     clearBtn.disabled = !imageBitmap
+    // predictBtn.disabled = !imageBitmap || !trained
+    predictBtn.disabled = !imageData
   }
 
   const onStart = async () => {
@@ -201,6 +207,9 @@ const initialiseCamera = async () => {
   const onCapture = async () => {
     imageBitmap = await createImageBitmap(videoElement)
     capturedImageElementContext.drawImage(imageBitmap, 0, 0)
+    const w = capturedImageElementContext.canvas.width
+    const h = capturedImageElementContext.canvas.height
+    imageData = capturedImageElementContext.getImageData(0, 0, w, h)
     onStop()
   }
 
@@ -229,9 +238,10 @@ const initialiseCamera = async () => {
 const onTrain = async () => {
   try {
     trainBtn.disabled = true
-    const model = createModel()
+    model = createModel()
     const history = await train(model)
     console.dir(history)
+    trained = true
     // const testData = await getTestData()
     // const testResult = model.evaluate(testData.xs, testData.labels)
   } finally {
@@ -239,8 +249,43 @@ const onTrain = async () => {
   }
 }
 
+const convertToGreyscale = imageData => {
+  const w = imageData.width
+  const h = imageData.height
+  const numPixels = w * h
+  const data = imageData.data
+  const array = new Uint8ClampedArray(data.length)
+  const steps = R.range(0, numPixels).map(index => index * 4)
+  for (const step of steps) {
+    const r = data[step]
+    const g = data[step + 1]
+    const b = data[step + 2]
+    const avg = (r + b + g) / 3
+    array[step] = avg
+    array[step + 1] = avg
+    array[step + 2] = avg
+    array[step + 3] = 255
+  }
+  return new ImageData(array, w, h)
+}
+
+const onPredict = async () => {
+  const imageDataGreyscale = convertToGreyscale(imageData)
+  const imageTensor = tf.browser.fromPixels(imageDataGreyscale, IMAGE_CHANNELS)
+  const imageTensorResized = tf.image.resizeBilinear(imageTensor, [IMAGE_WIDTH, IMAGE_HEIGHT])
+  const input = tf.stack([imageTensorResized])
+  const output = model.predict(input)
+  const boundingBox = output.arraySync()[0]
+  console.log(`boundingBox: ${JSON.stringify(boundingBox)}`)
+  drawImageTensor(imageTensorResized, boundingBox)
+}
+
 const trainBtn = document.getElementById('trainBtn')
 trainBtn.addEventListener('click', onTrain)
+
+const predictBtn = document.getElementById('predictBtn')
+predictBtn.addEventListener('click', onPredict)
+// predictBtn.disabled = true
 
 const main = async () => {
   drawGuides()
