@@ -80,7 +80,7 @@ const loadImage = async url => {
 
 // const loadTrainingData = () => loadData(trainingData)
 
-const BATCH_SIZE = 1
+const BATCH_SIZE = 3
 
 async function* trainingDataGenerator() {
   tf.util.shuffle(trainingData)
