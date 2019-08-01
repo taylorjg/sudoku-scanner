@@ -31,13 +31,20 @@ const drawDigitBoxes = (ctx, boundingBox) => {
   }
 }
 
-const drawImageTensor = async (imageTensor, boundingBox) => {
+const drawImageTensor = async (imageTensor, boundingBoxTarget, boundingBoxPrediction) => {
   const canvas = document.createElement('canvas')
   await tf.browser.toPixels(imageTensor, canvas)
   const ctx = canvas.getContext('2d')
-  ctx.strokeStyle = 'blue'
-  ctx.strokeRect(...boundingBox)
-  drawDigitBoxes(ctx, boundingBox)
+  if (boundingBoxTarget) {
+    ctx.strokeStyle = 'blue'
+    ctx.strokeRect(...boundingBoxTarget)
+    // drawDigitBoxes(ctx, boundingBoxTarget)
+  }
+  if (boundingBoxPrediction) {
+    ctx.strokeStyle = 'red'
+    ctx.strokeRect(...boundingBoxPrediction)
+    // drawDigitBoxes(ctx, boundingBoxPrediction)
+  }
   const body = document.querySelector('body')
   body.appendChild(canvas)
 }
@@ -57,6 +64,27 @@ const drawImageTensor = async (imageTensor, boundingBox) => {
 //   })
 // }
 
+const convertToGreyscale = imageData => {
+  const w = imageData.width
+  const h = imageData.height
+  const numPixels = w * h
+  const data = imageData.data
+  const array = new Uint8ClampedArray(data.length)
+  const bases = R.range(0, numPixels).map(index => index * 4)
+  for (const base of bases) {
+    const colourValues = data.slice(base, base + 4)
+    const [r, g, b, a] = colourValues
+    // https://imagemagick.org/script/command-line-options.php#colorspace
+    // Gray = 0.212656*R+0.715158*G+0.072186*B
+    const greyValue = 0.212656 * r + 0.715158 * g + 0.072186 * b
+    array[base] = greyValue
+    array[base + 1] = greyValue
+    array[base + 2] = greyValue
+    array[base + 3] = a
+  }
+  return new ImageData(array, w, h)
+}
+
 const IMAGE_CACHE = new Map()
 
 const loadImage = async url => {
@@ -73,6 +101,29 @@ const loadImage = async url => {
   return imageTensor
 }
 
+// const loadImage2 = async url => {
+//   const existingImageTensor = IMAGE_CACHE.get(url)
+//   if (existingImageTensor) return existingImageTensor
+//   const promise = new Promise(resolve => {
+//     console.log(`Loading ${url}`)
+//     const image = new Image()
+//     image.onload = () => {
+//       const canvas = document.createElement('canvas')
+//       canvas.width = image.width
+//       canvas.height = image.height
+//       const ctx = canvas.getContext('2d')
+//       ctx.drawImage(image, 0, 0)
+//       const imageData = ctx.getImageData(0, 0, image.width, image.height)
+//       const imageDataGreyscale = convertToGreyscale(imageData)
+//       return resolve(tf.browser.fromPixels(imageDataGreyscale, IMAGE_CHANNELS))
+//     }
+//     image.src = url
+//   })
+//   const imageTensor = await promise
+//   IMAGE_CACHE.set(url, imageTensor)
+//   return imageTensor
+// }
+
 // const loadData = async data => {
 //   const urls = data.map(datum => datum.url)
 //   const promises = urls.map(loadImage)
@@ -87,7 +138,7 @@ const loadImage = async url => {
 
 // const loadTrainingData = () => loadData(trainingData)
 
-const BATCH_SIZE = 3
+const BATCH_SIZE = 13
 
 async function* dataGenerator(data) {
   tf.util.shuffle(data)
@@ -107,7 +158,7 @@ async function* dataGenerator(data) {
 }
 
 const createModel = () => {
-  const inputShape = [IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_CHANNELS]
+  const inputShape = [IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]
   const model = tf.sequential()
   model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 32, activation: 'relu' }))
   model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
@@ -139,7 +190,7 @@ const train = async model => {
     })
 
   const params = {
-    epochs: 10,
+    epochs: 20,
     validationData: validationDataset,
     callbacks: customCallback
   }
@@ -193,7 +244,7 @@ const initialiseCamera = async () => {
     captureBtn.disabled = !playing
     saveBtn.disabled = !imageData
     clearBtn.disabled = !imageData
-    predictCaptureBtn.disabled = !imageData || !trained
+    predictCaptureBtn.disabled = !imageData // || !trained
   }
 
   const onStart = async () => {
@@ -262,40 +313,20 @@ const onTrain = async () => {
   }
 }
 
-const convertToGreyscale = imageData => {
-  const w = imageData.width
-  const h = imageData.height
-  const numPixels = w * h
-  const data = imageData.data
-  const array = new Uint8ClampedArray(data.length)
-  const bases = R.range(0, numPixels).map(index => index * 4)
-  for (const base of bases) {
-    const colourValues = data.slice(base, base + 4)
-    const [r, g, b, a] = colourValues
-    // https://imagemagick.org/script/command-line-options.php#colorspace
-    // Gray = 0.212656*R+0.715158*G+0.072186*B
-    const greyValue = 0.212656 * r + 0.715158 * g + 0.072186 * b
-    array[base] = greyValue
-    array[base + 1] = greyValue
-    array[base + 2] = greyValue
-    array[base + 3] = a
-  }
-  return new ImageData(array, w, h)
-}
-
 const normaliseImage = imageData => {
   const imageDataGreyscale = convertToGreyscale(imageData)
   const imageTensorGreyscale = tf.browser.fromPixels(imageDataGreyscale, IMAGE_CHANNELS)
-  return tf.image.resizeBilinear(imageTensorGreyscale, [IMAGE_WIDTH, IMAGE_HEIGHT])
+  return tf.image.resizeBilinear(imageTensorGreyscale, [IMAGE_HEIGHT, IMAGE_WIDTH])
 }
 
 const onPredictCapture = async () => {
   const imageTensor = normaliseImage(imageData)
-  const input = tf.stack([imageTensor])
-  const output = model.predict(input)
-  const boundingBox = output.arraySync()[0]
-  console.log(`capture bounding box prediction: ${JSON.stringify(boundingBox)}`)
-  drawImageTensor(imageTensor, boundingBox)
+  // const input = tf.stack([imageTensor])
+  // const output = model.predict(input)
+  // const boundingBoxPrediction = output.arraySync()[0]
+  // console.log(`boundingBoxPrediction: ${JSON.stringify(boundingBoxPrediction)}`)
+  // drawImageTensor(imageTensor, undefined, boundingBoxPrediction)
+  drawImageTensor(imageTensor, undefined, undefined)
 }
 
 const onPredictTestData = async () => {
@@ -303,11 +334,13 @@ const onPredictTestData = async () => {
   const imageTensors = await Promise.all(promises)
   const input = tf.stack(imageTensors)
   const output = model.predict(input)
-  const boundingBoxes = output.arraySync()
+  const boundingBoxPredictions = output.arraySync()
   imageTensors.map((imageTensor, index) => {
-    const boundingBox = boundingBoxes[index]
-    console.log(`test data bounding box prediction [${index}]: ${JSON.stringify(boundingBox)}`)
-    drawImageTensor(imageTensor, boundingBox)
+    const boundingBoxTarget = testData[index].boundingBox
+    const boundingBoxPrediction = boundingBoxPredictions[index]
+    console.log(`boundingBoxTarget [${index}]: ${JSON.stringify(boundingBoxTarget)}`)
+    console.log(`boundingBoxPrediction [${index}]: ${JSON.stringify(boundingBoxPrediction)}`)
+    drawImageTensor(imageTensor, boundingBoxTarget, boundingBoxPrediction)
   })
 }
 
