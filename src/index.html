@@ -18,13 +18,22 @@
     </div>
     <div class="row">
       <h1>Training</h1>
+      <!-- TODO: add UI elements re number of epochs, etc. -->
       <button id="trainBtn" class="btn btn-primary btn-xs">Train</button>
     </div>
     <div class="row">
       <hr />
     </div>
     <div class="row">
-      <h1>Prediction</h1>
+      <h1>Predictions</h1>
+      <button id="predictTestDataBtn" class="btn btn-danger btn-xs">Predict Test Data</button>
+      <div id="predictTestDataResults"></div>
+    </div>
+    <div class="row">
+      <hr />
+    </div>
+    <div class="row">
+      <h1>Capturing</h1>
       <div style="text-align: center; margin-bottom: 5px;">
         <button id="startBtn" class="btn btn-default btn-xs">Start Camera</button>
         <button id="stopBtn" class="btn btn-default btn-xs">Stop Camera</button>
@@ -33,7 +42,7 @@
       <div style="text-align: center; margin-bottom: 5px;">
         <button id="saveBtn" class="btn btn-default btn-xs">Save Image</button>
         <button id="clearBtn" class="btn btn-danger btn-xs">Clear</button>
-        <button id="predictBtn" class="btn btn-danger btn-xs">Predict</button>
+        <button id="predictCaptureBtn" class="btn btn-danger btn-xs">Predict Capture</button>
       </div>
       <div style="text-align: center;">
         <video id="video" class="video-dimensions"></video>
@@ -43,6 +52,7 @@
       <div>
         <pre id="messageArea"></pre>
       </div>
+      <div id="predictCaptureResults"></div>
     </div>
   </div>
 </body>

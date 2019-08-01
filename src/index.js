@@ -1,11 +1,13 @@
 import * as tf from '@tensorflow/tfjs'
+import * as tfvis from '@tensorflow/tfjs-vis'
 import * as R from 'ramda'
 import axios from 'axios'
 import trainingData from '../data/training-data.json'
+import validationData from '../data/validation-data.json'
+import testData from '../data/test-data.json'
 
-let trained = false
 let model = undefined
-let imageBitmap = undefined
+let trained = false
 let imageData = undefined
 
 const IMAGE_WIDTH = 224
@@ -87,9 +89,9 @@ const loadImage = async url => {
 
 const BATCH_SIZE = 3
 
-async function* trainingDataGenerator() {
-  tf.util.shuffle(trainingData)
-  const batches = R.splitEvery(BATCH_SIZE, trainingData)
+async function* dataGenerator(data) {
+  tf.util.shuffle(data)
+  const batches = R.splitEvery(BATCH_SIZE, data)
   for (const batch of batches) {
     const urls = batch.map(item => item.url)
     const promises = urls.map(loadImage)
@@ -107,7 +109,7 @@ async function* trainingDataGenerator() {
 const createModel = () => {
   const inputShape = [IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_CHANNELS]
   const model = tf.sequential()
-  model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 16, activation: 'relu' }))
+  model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 32, activation: 'relu' }))
   model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
   model.add(tf.layers.conv2d({ kernelSize: 3, filters: 32, activation: 'relu' }))
   model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
@@ -122,13 +124,26 @@ const createModel = () => {
 const train = async model => {
   model.compile({
     optimizer: 'rmsprop',
-    loss: 'meanSquaredError'
+    // loss: 'meanSquaredError'
+    loss: 'meanAbsoluteError'
   })
+  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
+  const validationDataset = tf.data.generator(() => dataGenerator(validationData))
+
+  const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
+  const customCallback = tfvis.show.fitCallbacks(
+    trainingSurface,
+    ['loss', 'val_loss'],
+    {
+      callbacks: ['onBatchEnd', 'onEpochEnd']
+    })
+
   const params = {
-    epochs: 10
+    epochs: 10,
+    validationData: validationDataset,
+    callbacks: customCallback
   }
-  const ds = tf.data.generator(trainingDataGenerator)
-  return model.fitDataset(ds, params)
+  return model.fitDataset(trainingDataset, params)
 }
 
 const createSvgElement = (elementName, additionalAttributes = {}) => {
@@ -176,10 +191,9 @@ const initialiseCamera = async () => {
     startBtn.disabled = playing
     stopBtn.disabled = !playing
     captureBtn.disabled = !playing
-    saveBtn.disabled = !imageBitmap
-    clearBtn.disabled = !imageBitmap
-    // predictBtn.disabled = !imageBitmap || !trained
-    predictBtn.disabled = !imageData
+    saveBtn.disabled = !imageData
+    clearBtn.disabled = !imageData
+    predictCaptureBtn.disabled = !imageData || !trained
   }
 
   const onStart = async () => {
@@ -205,7 +219,7 @@ const initialiseCamera = async () => {
   }
 
   const onCapture = async () => {
-    imageBitmap = await createImageBitmap(videoElement)
+    const imageBitmap = await createImageBitmap(videoElement)
     capturedImageElementContext.drawImage(imageBitmap, 0, 0)
     const w = capturedImageElementContext.canvas.width
     const h = capturedImageElementContext.canvas.height
@@ -221,7 +235,7 @@ const initialiseCamera = async () => {
 
   const onClear = () => {
     capturedImageElementContext.clearRect(0, 0, capturedImageElement.width, capturedImageElement.height)
-    imageBitmap = undefined
+    imageData = undefined
     messageArea.innerText = ''
     updateButtonState()
   }
@@ -242,8 +256,7 @@ const onTrain = async () => {
     const history = await train(model)
     console.dir(history)
     trained = true
-    // const testData = await getTestData()
-    // const testResult = model.evaluate(testData.xs, testData.labels)
+    predictTestDataBtn.disabled = false
   } finally {
     trainBtn.disabled = false
   }
@@ -255,37 +268,59 @@ const convertToGreyscale = imageData => {
   const numPixels = w * h
   const data = imageData.data
   const array = new Uint8ClampedArray(data.length)
-  const steps = R.range(0, numPixels).map(index => index * 4)
-  for (const step of steps) {
-    const r = data[step]
-    const g = data[step + 1]
-    const b = data[step + 2]
-    const avg = (r + b + g) / 3
-    array[step] = avg
-    array[step + 1] = avg
-    array[step + 2] = avg
-    array[step + 3] = 255
+  const bases = R.range(0, numPixels).map(index => index * 4)
+  for (const base of bases) {
+    const colourValues = data.slice(base, base + 4)
+    const [r, g, b, a] = colourValues
+    // https://imagemagick.org/script/command-line-options.php#colorspace
+    // Gray = 0.212656*R+0.715158*G+0.072186*B
+    const greyValue = 0.212656 * r + 0.715158 * g + 0.072186 * b
+    array[base] = greyValue
+    array[base + 1] = greyValue
+    array[base + 2] = greyValue
+    array[base + 3] = a
   }
   return new ImageData(array, w, h)
 }
 
-const onPredict = async () => {
+const normaliseImage = imageData => {
   const imageDataGreyscale = convertToGreyscale(imageData)
-  const imageTensor = tf.browser.fromPixels(imageDataGreyscale, IMAGE_CHANNELS)
-  const imageTensorResized = tf.image.resizeBilinear(imageTensor, [IMAGE_WIDTH, IMAGE_HEIGHT])
-  const input = tf.stack([imageTensorResized])
+  const imageTensorGreyscale = tf.browser.fromPixels(imageDataGreyscale, IMAGE_CHANNELS)
+  return tf.image.resizeBilinear(imageTensorGreyscale, [IMAGE_WIDTH, IMAGE_HEIGHT])
+}
+
+const onPredictCapture = async () => {
+  const imageTensor = normaliseImage(imageData)
+  const input = tf.stack([imageTensor])
   const output = model.predict(input)
   const boundingBox = output.arraySync()[0]
-  console.log(`boundingBox: ${JSON.stringify(boundingBox)}`)
-  drawImageTensor(imageTensorResized, boundingBox)
+  console.log(`capture bounding box prediction: ${JSON.stringify(boundingBox)}`)
+  drawImageTensor(imageTensor, boundingBox)
+}
+
+const onPredictTestData = async () => {
+  const promises = testData.map(item => item.url).map(loadImage)
+  const imageTensors = await Promise.all(promises)
+  const input = tf.stack(imageTensors)
+  const output = model.predict(input)
+  const boundingBoxes = output.arraySync()
+  imageTensors.map((imageTensor, index) => {
+    const boundingBox = boundingBoxes[index]
+    console.log(`test data bounding box prediction [${index}]: ${JSON.stringify(boundingBox)}`)
+    drawImageTensor(imageTensor, boundingBox)
+  })
 }
 
 const trainBtn = document.getElementById('trainBtn')
 trainBtn.addEventListener('click', onTrain)
 
-const predictBtn = document.getElementById('predictBtn')
-predictBtn.addEventListener('click', onPredict)
-// predictBtn.disabled = true
+const predictCaptureBtn = document.getElementById('predictCaptureBtn')
+predictCaptureBtn.addEventListener('click', onPredictCapture)
+predictCaptureBtn.disabled = true
+
+const predictTestDataBtn = document.getElementById('predictTestDataBtn')
+predictTestDataBtn.addEventListener('click', onPredictTestData)
+predictTestDataBtn.disabled = true
 
 const main = async () => {
   drawGuides()

@@ -1,6 +1,6 @@
 {
   "name": "sudoku-scanner",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Train a model to recognise a Sudoku puzzle from a scanned image",
   "main": "index.js",
   "scripts": {
@@ -14,6 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "@tensorflow/tfjs": "^1.2.2",
+    "@tensorflow/tfjs-vis": "^1.1.0",
     "axios": "^0.19.0",
     "body-parser": "^1.19.0",
     "dlxlib": "^2.0.0-alpha.2",
