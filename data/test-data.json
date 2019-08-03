@@ -1,12 +1,102 @@
 [
     {
-        "puzzleId": 1,
-        "url": "/normalisedImages/00001.png",
+        "puzzleId": 10,
+        "url": "/normalisedImages/00024.png",
         "boundingBox": [
-            21,
+            20,
+            10,
+            191,
+            194
+        ]
+    },
+    {
+        "puzzleId": 10,
+        "url": "/normalisedImages/00025.png",
+        "boundingBox": [
+            9,
             15,
-            190,
-            192
+            203,
+            202
+        ]
+    },
+    {
+        "puzzleId": 11,
+        "url": "/normalisedImages/00026.png",
+        "boundingBox": [
+            11,
+            14,
+            197,
+            196
+        ]
+    },
+    {
+        "puzzleId": 11,
+        "url": "/normalisedImages/00027.png",
+        "boundingBox": [
+            11,
+            17,
+            199,
+            198
+        ]
+    },
+    {
+        "puzzleId": 12,
+        "url": "/normalisedImages/00028.png",
+        "boundingBox": [
+            9,
+            18,
+            195,
+            198
+        ]
+    },
+    {
+        "puzzleId": 12,
+        "url": "/normalisedImages/00029.png",
+        "boundingBox": [
+            20,
+            22,
+            195,
+            200
+        ]
+    },
+    {
+        "puzzleId": 13,
+        "url": "/normalisedImages/00030.png",
+        "boundingBox": [
+            17,
+            12,
+            193,
+            196
+        ]
+    },
+    {
+        "puzzleId": 13,
+        "url": "/normalisedImages/00031.png",
+        "boundingBox": [
+            14,
+            11,
+            191,
+            195
+        ]
+    },
+    {
+        "puzzleId": 14,
+        "url": "/normalisedImages/00032.png",
+        "boundingBox": [
+            11,
+            16,
+            196,
+            195
+        ]
+    },
+    {
+        "puzzleId": 14,
+        "url": "/normalisedImages/00033.png",
+        "boundingBox": [
+            25,
+            8,
+            194,
+            193
         ]
     }
 ]

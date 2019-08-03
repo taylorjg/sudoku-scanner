@@ -175,8 +175,9 @@ const train = async model => {
   model.compile({
     optimizer: 'rmsprop',
     loss: 'meanSquaredError'
+    // loss: 'meanAbsoluteError'
   })
-  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData)).take(7)
+  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
   const validationDataset = tf.data.generator(() => dataGenerator(validationData))
 
   const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
