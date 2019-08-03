@@ -8,7 +8,7 @@ const DIST_FOLDER = path.resolve(__dirname, '..', 'dist')
 const RAW_IMAGES_FOLDER = path.resolve(__dirname, '..', 'scanned-images', 'raw')
 const NORMALISED_IMAGES_FOLDER = path.resolve(__dirname, '..', 'scanned-images', 'normalised')
 
-const apiRouter = configureApiRouter(RAW_IMAGES_FOLDER)
+const apiRouter = configureApiRouter(RAW_IMAGES_FOLDER, NORMALISED_IMAGES_FOLDER)
 
 const app = express()
 app.use(express.static(DIST_FOLDER))

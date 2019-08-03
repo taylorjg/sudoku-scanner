@@ -138,10 +138,9 @@ const loadImage = async url => {
 
 // const loadTrainingData = () => loadData(trainingData)
 
-const BATCH_SIZE = 13
+const BATCH_SIZE = 100
 
 async function* dataGenerator(data) {
-  tf.util.shuffle(data)
   const batches = R.splitEvery(BATCH_SIZE, data)
   for (const batch of batches) {
     const urls = batch.map(item => item.url)
@@ -175,10 +174,9 @@ const createModel = () => {
 const train = async model => {
   model.compile({
     optimizer: 'rmsprop',
-    // loss: 'meanSquaredError'
-    loss: 'meanAbsoluteError'
+    loss: 'meanSquaredError'
   })
-  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
+  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData)).take(7)
   const validationDataset = tf.data.generator(() => dataGenerator(validationData))
 
   const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
@@ -279,9 +277,19 @@ const initialiseCamera = async () => {
   }
 
   const onSave = async () => {
-    const dataUrl = capturedImageElement.toDataURL('image/png')
-    const response = await axios.post('/api/saveImage', { dataUrl })
-    messageArea.innerText = response.data
+    const dataUrlRaw = capturedImageElement.toDataURL('image/png')
+    const responseRaw = await axios.post('/api/saveRawImage', { dataUrl: dataUrlRaw })
+    console.dir(responseRaw)
+    messageArea.innerText = responseRaw.data
+
+    const canvas = document.createElement('canvas')
+    canvas.width = IMAGE_WIDTH
+    canvas.height = IMAGE_HEIGHT
+    const imageTensor = normaliseImage(imageData)
+    await tf.browser.toPixels(imageTensor, canvas)
+    const dataUrlNormalised = canvas.toDataURL('image/png')
+    const responseNormalised = await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
+    console.dir(responseNormalised)
   }
 
   const onClear = () => {

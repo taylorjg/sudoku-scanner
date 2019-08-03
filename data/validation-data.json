@@ -1,12 +1,62 @@
 [
     {
-        "puzzleId": 1,
-        "url": "/normalisedImages/00001.png",
+        "puzzleId": 4,
+        "url": "/normalisedImages/00008.png",
+        "boundingBox": [
+            21,
+            21,
+            186,
+            186
+        ]
+    },
+    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00009.png",
+        "boundingBox": [
+            21,
+            20,
+            186,
+            184
+        ]
+    },
+    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00010.png",
+        "boundingBox": [
+            13,
+            15,
+            195,
+            193
+        ]
+    },
+    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00011.png",
+        "boundingBox": [
+            25,
+            25,
+            183,
+            183
+        ]
+    },
+    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00012.png",
         "boundingBox": [
             21,
             15,
-            190,
-            192
+            191,
+            189
+        ]
+    },
+    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00013.png",
+        "boundingBox": [
+            20,
+            20,
+            188,
+            187
         ]
     }
 ]
