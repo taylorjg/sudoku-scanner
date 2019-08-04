@@ -158,7 +158,7 @@ async function* dataGenerator(data) {
 const createModel = () => {
   const inputShape = [IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]
   const conv2dArgs = {
-    kernelSize: 2,
+    kernelSize: 3,
     filters: 32,
     activation: 'sigmoid'
   }
@@ -181,10 +181,11 @@ const createModel = () => {
 
   model.add(tf.layers.flatten())
 
-  model.add(tf.layers.dense({ units: 64, activation: 'relu' }))
+  model.add(tf.layers.dense({ units: 128, activation: 'relu' }))
   model.add(tf.layers.dense({ units: 4 }))
 
   model.summary()
+
   return model
 }
 
@@ -194,10 +195,10 @@ const train = async model => {
     loss: 'meanSquaredError'
     // loss: 'meanAbsoluteError'
   })
-  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
-  // const ds1 = tf.data.generator(() => dataGenerator(trainingData))
-  // const ds2 = tf.data.generator(() => dataGenerator(testData))
-  // const trainingDataset = ds1.concatenate(ds2) // .repeat(3)
+  // const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
+  const ds1 = tf.data.generator(() => dataGenerator(trainingData))
+  const ds2 = tf.data.generator(() => dataGenerator(testData))
+  const trainingDataset = ds1.concatenate(ds2) // .repeat(3)
   const validationDataset = tf.data.generator(() => dataGenerator(validationData))
 
   const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
