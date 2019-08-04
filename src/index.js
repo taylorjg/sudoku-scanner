@@ -17,7 +17,7 @@ const IMAGE_CHANNELS = 1
 const inset = (x, y, w, h, dx, dy) =>
   [x + dx, y + dy, w - 2 * dx, h - 2 * dy]
 
-const drawDigitBoxes = (ctx, boundingBox) => {
+const drawDigitBoxes = (ctx, boundingBox, colour) => {
   const [bbx, bby, bbw, bbh] = boundingBox
   const digitw = bbw / 9
   const digith = bbh / 9
@@ -25,7 +25,7 @@ const drawDigitBoxes = (ctx, boundingBox) => {
     const x = bbx + col * digitw
     for (const row of R.range(0, 9)) {
       const y = bby + row * digith
-      ctx.strokeStyle = 'red'
+      ctx.strokeStyle = colour
       ctx.strokeRect(...inset(x, y, digitw, digith, digitw / 10, digith / 10))
     }
   }
@@ -38,12 +38,11 @@ const drawImageTensor = async (imageTensor, boundingBoxTarget, boundingBoxPredic
   if (boundingBoxTarget) {
     ctx.strokeStyle = 'blue'
     ctx.strokeRect(...boundingBoxTarget)
-    // drawDigitBoxes(ctx, boundingBoxTarget)
   }
   if (boundingBoxPrediction) {
     ctx.strokeStyle = 'red'
     ctx.strokeRect(...boundingBoxPrediction)
-    // drawDigitBoxes(ctx, boundingBoxPrediction)
+    drawDigitBoxes(ctx, boundingBoxPrediction, 'red')
   }
   const body = document.querySelector('body')
   body.appendChild(canvas)
@@ -158,15 +157,33 @@ async function* dataGenerator(data) {
 
 const createModel = () => {
   const inputShape = [IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]
+  const conv2dArgs = {
+    kernelSize: 2,
+    filters: 32,
+    activation: 'sigmoid'
+  }
+  const maxPooling2dArgs = {
+    poolSize: 2,
+    strides: 2
+  }
+
   const model = tf.sequential()
-  model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 32, activation: 'relu' }))
-  model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
-  model.add(tf.layers.conv2d({ kernelSize: 3, filters: 32, activation: 'relu' }))
-  model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }))
-  model.add(tf.layers.conv2d({ kernelSize: 3, filters: 32, activation: 'relu' }))
+
+  model.add(tf.layers.conv2d({ inputShape, ...conv2dArgs }))
+  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  model.add(tf.layers.conv2d(conv2dArgs))
+
   model.add(tf.layers.flatten())
+
   model.add(tf.layers.dense({ units: 64, activation: 'relu' }))
   model.add(tf.layers.dense({ units: 4 }))
+
   model.summary()
   return model
 }
@@ -178,6 +195,9 @@ const train = async model => {
     // loss: 'meanAbsoluteError'
   })
   const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
+  // const ds1 = tf.data.generator(() => dataGenerator(trainingData))
+  // const ds2 = tf.data.generator(() => dataGenerator(testData))
+  // const trainingDataset = ds1.concatenate(ds2) // .repeat(3)
   const validationDataset = tf.data.generator(() => dataGenerator(validationData))
 
   const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
