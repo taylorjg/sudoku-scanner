@@ -195,10 +195,7 @@ const train = async model => {
     loss: 'meanSquaredError'
     // loss: 'meanAbsoluteError'
   })
-  // const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
-  const ds1 = tf.data.generator(() => dataGenerator(trainingData))
-  const ds2 = tf.data.generator(() => dataGenerator(testData))
-  const trainingDataset = ds1.concatenate(ds2) // .repeat(3)
+  const trainingDataset = tf.data.generator(() => dataGenerator(trainingData))
   const validationDataset = tf.data.generator(() => dataGenerator(validationData))
 
   const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
@@ -334,8 +331,12 @@ const onTrain = async () => {
   try {
     trainBtn.disabled = true
     model = createModel()
-    const history = await train(model)
-    console.dir(history)
+    const trainingResults = await train(model)
+    console.dir(trainingResults)
+    const lastLoss = R.last(trainingResults.history.loss)
+    const lastValLoss = R.last(trainingResults.history.val_loss)
+    console.log('last loss:', lastLoss, 'sqrt:', Math.sqrt(lastLoss))
+    console.log('last val_loss:', lastValLoss, 'sqrt:', Math.sqrt(lastValLoss))
     trained = true
     predictTestDataBtn.disabled = false
   } finally {
