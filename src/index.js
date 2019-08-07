@@ -20,7 +20,7 @@ const IMAGE_CHANNELS = 1
 const inset = (x, y, w, h, dx, dy) =>
   [x + dx, y + dy, w - 2 * dx, h - 2 * dy]
 
-function* calculateDigitBoxes(boundingBox) {
+function* calculateGridSquares(boundingBox) {
   const [bbx, bby, bbw, bbh] = boundingBox
   const w = bbw / 9
   const h = bbh / 9
@@ -35,15 +35,16 @@ function* calculateDigitBoxes(boundingBox) {
   }
 }
 
-const drawDigitBoxes = (ctx, boundingBox, colour) => {
-  for (const digitBox of calculateDigitBoxes(boundingBox)) {
+const drawGridSquares = (ctx, boundingBox, colour) => {
+  for (const digitBox of calculateGridSquares(boundingBox)) {
     ctx.strokeStyle = colour
     ctx.strokeRect(...digitBox)
   }
 }
 
-const drawImageTensor = async (imageTensor, boundingBoxTarget, boundingBoxPrediction) => {
+const drawGridImageTensor = async (parentElement, imageTensor, boundingBoxTarget, boundingBoxPrediction) => {
   const canvas = document.createElement('canvas')
+  canvas.setAttribute('class', 'grid-image')
   await tf.browser.toPixels(imageTensor, canvas)
   const ctx = canvas.getContext('2d')
   if (boundingBoxTarget) {
@@ -53,37 +54,19 @@ const drawImageTensor = async (imageTensor, boundingBoxTarget, boundingBoxPredic
   if (boundingBoxPrediction) {
     ctx.strokeStyle = 'red'
     ctx.strokeRect(...boundingBoxPrediction)
-    drawDigitBoxes(ctx, boundingBoxPrediction, 'red')
+    drawGridSquares(ctx, boundingBoxPrediction, 'red')
   }
-  const body = document.querySelector('body')
-  body.appendChild(canvas)
+  parentElement.appendChild(canvas)
 }
 
-const drawDigitImageTensors = t4d => {
-  const body = document.querySelector('body')
-  const t3ds = tf.unstack(t4d)
-  t3ds.forEach(async t3d => {
+const drawDigitImageTensors = (parentElement, tensor4d) => {
+  tf.unstack(tensor4d).forEach(async imageTensor => {
     const canvas = document.createElement('canvas')
-    canvas.setAttribute('style', 'margin: 2px')
-    await tf.browser.toPixels(t3d, canvas)
-    body.appendChild(canvas)
+    canvas.setAttribute('class', 'digit-image')
+    await tf.browser.toPixels(imageTensor, canvas)
+    parentElement.appendChild(canvas)
   })
 }
-
-// const drawImageTensors = (trainData, imageTensors) => {
-//   const body = document.querySelector('body')
-//   imageTensors.forEach(async (imageTensor, index) => {
-//     drawImageTensor(imageTensor)
-//     const { boundingBox } = trainData[index]
-//     const canvas = document.createElement('canvas')
-//     await tf.browser.toPixels(imageTensor, canvas)
-//     const ctx = canvas.getContext('2d')
-//     ctx.strokeStyle = 'blue'
-//     ctx.strokeRect(...boundingBox)
-//     drawDigitBoxes(ctx, boundingBox)
-//     body.appendChild(canvas)
-//   })
-// }
 
 const convertToGreyscale = imageData => {
   const w = imageData.width
@@ -106,10 +89,10 @@ const convertToGreyscale = imageData => {
   return new ImageData(array, w, h)
 }
 
-const IMAGE_CACHE = new Map()
+const GRID_IMAGE_CACHE = new Map()
 
 const loadImage = async url => {
-  const existingImageTensor = IMAGE_CACHE.get(url)
+  const existingImageTensor = GRID_IMAGE_CACHE.get(url)
   if (existingImageTensor) return existingImageTensor
   const promise = new Promise(resolve => {
     console.log(`Loading ${url}`)
@@ -118,46 +101,9 @@ const loadImage = async url => {
     image.src = url
   })
   const imageTensor = await promise
-  IMAGE_CACHE.set(url, imageTensor)
+  GRID_IMAGE_CACHE.set(url, imageTensor)
   return imageTensor
 }
-
-// const loadImage2 = async url => {
-//   const existingImageTensor = IMAGE_CACHE.get(url)
-//   if (existingImageTensor) return existingImageTensor
-//   const promise = new Promise(resolve => {
-//     console.log(`Loading ${url}`)
-//     const image = new Image()
-//     image.onload = () => {
-//       const canvas = document.createElement('canvas')
-//       canvas.width = image.width
-//       canvas.height = image.height
-//       const ctx = canvas.getContext('2d')
-//       ctx.drawImage(image, 0, 0)
-//       const imageData = ctx.getImageData(0, 0, image.width, image.height)
-//       const imageDataGreyscale = convertToGreyscale(imageData)
-//       return resolve(tf.browser.fromPixels(imageDataGreyscale, IMAGE_CHANNELS))
-//     }
-//     image.src = url
-//   })
-//   const imageTensor = await promise
-//   IMAGE_CACHE.set(url, imageTensor)
-//   return imageTensor
-// }
-
-// const loadData = async data => {
-//   const urls = data.map(datum => datum.url)
-//   const promises = urls.map(loadImage)
-//   const imageTensors = await Promise.all(promises)
-//   drawImageTensors(data, imageTensors)
-//   const xs = tf.stack(imageTensors)
-//   const ys = tf.tensor2d(data.map(datum => datum.boundingBox), undefined, 'int32')
-//   console.log(`xs - rank: ${xs.rank}; shape: ${xs.shape}; dtype: ${xs.dtype}`)
-//   console.log(`ys - rank: ${ys.rank}; shape: ${ys.shape}; dtype: ${ys.dtype}`)
-//   return { xs, ys }
-// }
-
-// const loadTrainingData = () => loadData(trainingData)
 
 const GRID_DATA_BATCH_SIZE = 1000
 
@@ -167,9 +113,10 @@ async function* gridDataGenerator(data) {
     const urls = batch.map(item => item.url)
     const promises = urls.map(loadImage)
     const imageTensors = await Promise.all(promises)
+    // const body = document.querySelector('body')
     // imageTensors.forEach((imageTensor, index) => {
     //   const boundingBox = batch[index].boundingBox
-    //   drawImageTensor(imageTensor, boundingBox)
+    //   drawGridImageTensor(body, imageTensor, boundingBox)
     // })
     const xs = tf.stack(imageTensors)
     const ys = tf.tensor2d(batch.map(item => item.boundingBox), undefined, 'int32')
@@ -177,22 +124,31 @@ async function* gridDataGenerator(data) {
   }
 }
 
-const digitDataGenerator = async data => {
+async function* digitDataGenerator(data) {
   const urls = data.map(item => item.url)
   const promises = urls.map(loadImage)
-  const imageTensors = await Promise.all(promises)
-  imageTensors.forEach((imageTensor, index) => {
+  const gridImageTensors = await Promise.all(promises)
+  const nested = gridImageTensors.map((gridImageTensor, index) => {
     const { boundingBox, puzzleId } = data[index]
     const puzzle = puzzles.find(p => p.id === puzzleId)
-    const initialValues = Array.from(puzzle.initialValues.join(''))
-    const digits = initialValues
+    const gridValues = Array.from(puzzle.initialValues.join(''))
+    const indexedDigits = gridValues
       .map((initialValue, index) => ({ digit: Number(initialValue), index }))
       .filter(({ digit }) => Number.isInteger(digit) && digit >= 1 && digit <= 9)
-    const allDigitBoxes = Array.from(calculateDigitBoxes(boundingBox))
-    const digitBoxes = digits
-      .map(({ digit, index }) => ({ digit, digitBox: allDigitBoxes[index] }))
-    const image = tf.stack([imageTensor.toFloat().div(255)])
-    const boxes = digitBoxes.map(({ digitBox }) => {
+    const allGridSquares = Array.from(calculateGridSquares(boundingBox))
+    const digitsAndGridSquares = indexedDigits
+      .map(({ digit, index }) => ({ digit, gridSquare: allGridSquares[index] }))
+
+    // TODO: cache all the digit images of a grid image
+    // - use a single cache entry per grid image
+    // - key: url, value: [digitImageTensors, digits]
+
+    // crop/normalise an image for each digit
+
+    // convert int32 [0, 255] values => float32 [0, 1] values
+    // convert Tensor3D [h, w, c] => Tensor4D [1, h, w, c]
+    const image = tf.stack([gridImageTensor.div(255)])
+    const boxes = digitsAndGridSquares.map(({ gridSquare: digitBox }) => {
       const [x, y, w, h] = digitBox
       const y1 = y
       const x1 = x
@@ -208,8 +164,40 @@ const digitDataGenerator = async data => {
     const boxInd = Array(boxes.length).fill(0)
     const cropSize = [20, 20]
     const digitImageTensors = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
-    drawDigitImageTensors(digitImageTensors)
+
+    const body = document.querySelector('body')
+    drawDigitImageTensors(body, digitImageTensors)
+
+    const xs = digitImageTensors
+    const oneBasedDigits = R.pluck('digit', indexedDigits)
+    const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
+    const ys = tf.oneHot(zeroBasedDigits, 9)
+
+    // QUESTION
+    // We could yield a batch of digits per image.
+    // Or, is it better to use the current single large shuffled batch ?
+    // All digits from a single image are very similar.
+    return { xs, ys }
   })
+
+  const xss = R.pluck('xs', nested)
+  const yss = R.pluck('ys', nested)
+  const xs = tf.concat(xss)
+  const ys = tf.concat(yss)
+
+  const xsArr = tf.unstack(xs)
+  const ysArr = tf.unstack(ys)
+  const pairsArr = R.zip(xsArr, ysArr)
+  tf.util.shuffle(pairsArr)
+  const xsShuffled = pairsArr.map(pair => pair[0])
+  const ysShuffled = pairsArr.map(pair => pair[1])
+  const xsShuffledStacked = tf.stack(xsShuffled)
+  const ysShuffledStacked = tf.stack(ysShuffled)
+
+  yield {
+    xs: xsShuffledStacked,
+    ys: ysShuffledStacked
+  }
 }
 
 const createGridModel = () => {
@@ -247,6 +235,7 @@ const createGridModel = () => {
 }
 
 const createDigitsModel = () => {
+  // TODO: see book page 131
 }
 
 const trainGrid = async model => {
@@ -255,10 +244,11 @@ const trainGrid = async model => {
     loss: 'meanSquaredError'
     // loss: 'meanAbsoluteError'
   })
+
   const trainingDataset = tf.data.generator(() => gridDataGenerator(trainingData))
   const validationDataset = tf.data.generator(() => gridDataGenerator(validationData))
 
-  const trainingSurface = tfvis.visor().surface({ tab: 'Tab 1', name: 'Model Training' })
+  const trainingSurface = tfvis.visor().surface({ tab: 'Grid', name: 'Model Training' })
   const customCallback = tfvis.show.fitCallbacks(
     trainingSurface,
     ['loss', 'val_loss'],
@@ -275,6 +265,32 @@ const trainGrid = async model => {
 }
 
 const trainDigits = async model => {
+  // model.compile({
+  //   optimizer: 'rmsprop',
+  //   loss: 'meanSquaredError'
+  //   // loss: 'meanAbsoluteError'
+  // })
+
+  const trainingDataset = tf.data.generator(() => digitDataGenerator(trainingData))
+  await trainingDataset.forEachAsync(item => console.dir(item))
+
+  // const validationDataset = tf.data.generator(() => digitDataGenerator(validationData))
+  // await validationDataset.forEachAsync(item => console.dir(item))
+
+  // const trainingSurface = tfvis.visor().surface({ tab: 'Digits', name: 'Model Training' })
+  // const customCallback = tfvis.show.fitCallbacks(
+  //   trainingSurface,
+  //   ['loss', 'val_loss'],
+  //   {
+  //     callbacks: ['onBatchEnd', 'onEpochEnd']
+  //   })
+
+  // const params = {
+  //   epochs: 20,
+  //   validationData: validationDataset,
+  //   callbacks: customCallback
+  // }
+  // return model.fitDataset(trainingDataset, params)
 }
 
 const createSvgElement = (elementName, additionalAttributes = {}) => {
@@ -410,10 +426,9 @@ const onTrainGrid = async () => {
 const onTrainDigits = async () => {
   try {
     trainDigitsBtn.disabled = true
-    await digitDataGenerator(trainingData)
-    // digitsModel = createDigitsModel()
-    // const trainingResults = await trainDigits(digitsModel)
-    // console.dir(trainingResults)
+    digitsModel = createDigitsModel()
+    const trainingResults = await trainDigits(digitsModel)
+    console.dir(trainingResults)
     // const lastLoss = R.last(trainingResults.history.loss)
     // const lastValLoss = R.last(trainingResults.history.val_loss)
     // console.log('last loss:', lastLoss, 'sqrt:', Math.sqrt(lastLoss))
@@ -438,7 +453,8 @@ const onPredictCapture = async () => {
   // const boundingBoxPrediction = output.arraySync()[0]
   // console.log(`boundingBoxPrediction: ${JSON.stringify(boundingBoxPrediction)}`)
   // drawImageTensor(imageTensor, undefined, boundingBoxPrediction)
-  drawImageTensor(imageTensor, undefined, undefined)
+  const body = document.querySelector('body')
+  drawGridImageTensor(body, imageTensor)
 }
 
 const onPredictGridTestData = async () => {
@@ -452,7 +468,8 @@ const onPredictGridTestData = async () => {
     const boundingBoxPrediction = boundingBoxPredictions[index]
     console.log(`boundingBoxTarget [${index}]: ${JSON.stringify(boundingBoxTarget)}`)
     console.log(`boundingBoxPrediction [${index}]: ${JSON.stringify(boundingBoxPrediction)}`)
-    drawImageTensor(imageTensor, boundingBoxTarget, boundingBoxPrediction)
+    const body = document.querySelector('body')
+    drawGridImageTensor(body, imageTensor, boundingBoxTarget, boundingBoxPrediction)
   })
 }
 

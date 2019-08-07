@@ -44,3 +44,11 @@
 #captured-image {
   border: 1px solid black;
 }
+
+.grid-image {
+  margin: 2px;
+}
+
+.digit-image {
+  margin: 2px;
+}
