@@ -8,8 +8,10 @@ import validationData from '../data/validation-data.json'
 import testData from '../data/test-data.json'
 
 let gridModel = undefined
+let blanksModel = undefined
 let digitsModel = undefined
 let trainedGrid = false
+let trainedBlanks = false
 let trainedDigits = false
 let imageData = undefined
 
@@ -152,8 +154,7 @@ const cropDigitImagesFromGridImage = (item, gridImageTensor) => {
   )
   const boxInd = Array(boxes.length).fill(0)
   const cropSize = [DIGIT_IMAGE_HEIGHT, DIGIT_IMAGE_WIDTH]
-  const digitImageTensors = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
-  const xs = digitImageTensors
+  const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
   const oneBasedDigits = R.pluck('digit', digitsAndGridSquares)
   const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
   const ys = tf.oneHot(zeroBasedDigits, 9)
@@ -163,16 +164,66 @@ const cropDigitImagesFromGridImage = (item, gridImageTensor) => {
 }
 
 // Probably need to use tf.tidy somewhere in here ?
+const cropAllGridSquareImagesFromGridImage = (item, gridImageTensor) => {
+  const { puzzleId, url, boundingBox, } = item
+  const gridSquares = Array.from(calculateGridSquares(boundingBox))
+  const puzzle = puzzles.find(p => p.id === puzzleId)
+  const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))
+  const gridSquaresWithDetails = flattenedInitialValues
+    .map((ch, index) => ({ isBlank: ch === ' ', index, gridSquare: gridSquares[index] }))
+  const image = tf.stack([gridImageTensor.div(255)])
+  const normaliseX = x => x / (GRID_IMAGE_WIDTH - 1)
+  const normaliseY = y => y / (GRID_IMAGE_HEIGHT - 1)
+  const boxes = gridSquaresWithDetails.map(({ gridSquare: [x, y, w, h] }) =>
+    [normaliseY(y), normaliseX(x), normaliseY(y + h), normaliseX(x + w)]
+  )
+  const boxInd = Array(boxes.length).fill(0)
+  const cropSize = [DIGIT_IMAGE_HEIGHT, DIGIT_IMAGE_WIDTH]
+  const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
+  const ys = tf.tensor1d(gridSquaresWithDetails.map(({ isBlank }) => isBlank ? 1 : 0))
+  // const body = document.querySelector('body')
+  // drawDigitImageTensors(body, xs, url)
+  return { xs, ys, item, puzzle, gridImageTensor, gridSquaresWithDetails }
+}
+
+// Probably need to use tf.tidy somewhere in here ?
+const loadAllGridSquaresData = async data => {
+  const urls = R.pluck('url', data)
+  const promises = urls.map(loadImage)
+  const gridImageTensors = await Promise.all(promises)
+  const perGrid = gridImageTensors.map((gridImageTensor, index) => {
+    const item = data[index]
+    return cropAllGridSquareImagesFromGridImage(item, gridImageTensor)
+  })
+  const xss = R.pluck('xs', perGrid)
+  const yss = R.pluck('ys', perGrid)
+  const xs = tf.concat(xss)
+  const ys = tf.concat(yss)
+  return { xs, ys }
+}
+
+// Probably need to use tf.tidy somewhere in here ?
+const loadAllGridSquaresData2 = async data => {
+  const urls = R.pluck('url', data)
+  const promises = urls.map(loadImage)
+  const gridImageTensors = await Promise.all(promises)
+  return gridImageTensors.map((gridImageTensor, index) => {
+    const item = data[index]
+    return cropAllGridSquareImagesFromGridImage(item, gridImageTensor)
+  })
+}
+
+// Probably need to use tf.tidy somewhere in here ?
 const loadDigitData = async data => {
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
   const gridImageTensors = await Promise.all(promises)
-  const perGridDigits = gridImageTensors.map((gridImageTensor, index) => {
+  const perGrid = gridImageTensors.map((gridImageTensor, index) => {
     const item = data[index]
     return cropDigitImagesFromGridImage(item, gridImageTensor)
   })
-  const xss = R.pluck('xs', perGridDigits)
-  const yss = R.pluck('ys', perGridDigits)
+  const xss = R.pluck('xs', perGrid)
+  const yss = R.pluck('ys', perGrid)
   const xs = tf.concat(xss)
   const ys = tf.concat(yss)
   return { xs, ys }
@@ -224,6 +275,36 @@ const createGridModel = () => {
   return model
 }
 
+const createBlanksModel = () => {
+  const inputShape = [DIGIT_IMAGE_HEIGHT, DIGIT_IMAGE_WIDTH, DIGIT_IMAGE_CHANNELS]
+  const conv2dArgs = {
+    kernelSize: 5,
+    filters: 32,
+    activation: 'relu',
+    strides: 1,
+    kernelInitializer: 'varianceScaling'
+  }
+  const maxPooling2dArgs = {
+    poolSize: [2, 2],
+    strides: [2, 2]
+  }
+
+  const model = tf.sequential()
+
+  model.add(tf.layers.conv2d({ inputShape, ...conv2dArgs }))
+  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  model.add(tf.layers.conv2d(conv2dArgs))
+
+  model.add(tf.layers.flatten())
+
+  model.add(tf.layers.dense({ units: 100, activation: 'sigmoid' }))
+  model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }))
+
+  model.summary()
+
+  return model
+}
+
 const createDigitsModel = () => {
 
   const inputShape = [DIGIT_IMAGE_HEIGHT, DIGIT_IMAGE_WIDTH, DIGIT_IMAGE_CHANNELS]
@@ -244,11 +325,10 @@ const createDigitsModel = () => {
   model.add(tf.layers.conv2d({ inputShape, ...conv2dArgs }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
   model.add(tf.layers.conv2d(conv2dArgs))
-  // model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
 
   model.add(tf.layers.flatten())
 
-  model.add(tf.layers.dense({ units: 200, activation: 'relu' }))
+  model.add(tf.layers.dense({ units: 256, activation: 'relu' }))
   model.add(tf.layers.dropout({ rate: 0.2 }))
   model.add(tf.layers.dense({ units: 9, activation: 'softmax' }))
 
@@ -260,7 +340,8 @@ const createDigitsModel = () => {
 const trainGrid = async model => {
 
   model.compile({
-    optimizer: 'rmsprop',
+    // optimizer: 'rmsprop',
+    optimizer: 'adam',
     loss: 'meanSquaredError'
   })
 
@@ -281,6 +362,38 @@ const trainGrid = async model => {
     callbacks: customCallback
   }
   return model.fitDataset(trainingDataset, params)
+}
+
+const trainBlanks = async model => {
+
+  model.compile({
+    optimizer: 'adam',
+    loss: 'binaryCrossentropy',
+    metrics: ['accuracy']
+  })
+
+  const combinedData = trainingData.concat(validationData)
+  tf.util.shuffle(combinedData)
+  const { xs, ys } = await loadAllGridSquaresData(combinedData)
+  console.log(`xs.shape: ${xs.shape}`)
+  console.log(`ys.shape: ${ys.shape}`)
+
+  const trainingSurface = tfvis.visor().surface({ tab: 'Blanks', name: 'Model Training' })
+  const customCallback = tfvis.show.fitCallbacks(
+    trainingSurface,
+    ['loss', 'val_loss', 'acc', 'val_acc'],
+    { callbacks: ['onBatchEnd', 'onEpochEnd'] }
+  )
+
+  const params = {
+    batchSize: 100,
+    epochs: 10,
+    shuffle: true,
+    validationSplit: 0.15,
+    callbacks: customCallback
+  }
+
+  return model.fit(xs, ys, params)
 }
 
 const trainDigits = async model => {
@@ -445,6 +558,18 @@ const onTrainGrid = async () => {
   }
 }
 
+const onTrainBlanks = async () => {
+  try {
+    trainBlanksBtn.disabled = true
+    blanksModel = createBlanksModel()
+    await trainBlanks(blanksModel)
+    trainedBlanks = true
+    predictBlanksTestDataBtn.disabled = false
+  } finally {
+    trainBlanksBtn.disabled = false
+  }
+}
+
 const onTrainDigits = async () => {
   try {
     trainDigitsBtn.disabled = true
@@ -490,6 +615,42 @@ const onPredictGridTestData = async () => {
   })
 }
 
+const BLANK_THRESHOLD = 0.95
+const DIGIT_THRESHOLD = 0.05
+
+const onPredictBlanksTestData = async () => {
+  const { xs, ys } = await loadAllGridSquaresData(testData)
+  const labels = ys
+  const outputs = blanksModel.predict(xs)
+  const predictions = tf.tensor1d(outputs.arraySync().map(p => p >= BLANK_THRESHOLD ? 1 : (p <= DIGIT_THRESHOLD ? 0 : -1)))
+  const classNames = ['Blank', 'Digit']
+  const classAccuracy = await tfvis.metrics.perClassAccuracy(labels, predictions)
+  const container = { name: 'Accuracy', tab: 'Evaluation' }
+  tfvis.show.perClassAccuracy(container, classAccuracy, classNames)
+}
+
+const onPredictBlanksTestData2 = async () => {
+  const data = await loadAllGridSquaresData2(testData)
+  for (const datum of data) {
+    const { xs, ys, gridImageTensor, gridSquaresWithDetails } = datum
+    const labels = ys.arraySync()
+    const outputs = blanksModel.predict(xs)
+    const predictions = outputs.arraySync()
+    const body = document.querySelector('body')
+    const canvas = await drawGridImageTensor(body, gridImageTensor)
+    const ctx = canvas.getContext('2d')
+    for (const { index, gridSquare } of gridSquaresWithDetails) {
+      const label = labels[index]
+      const prediction = predictions[index]
+      const colour = prediction > DIGIT_THRESHOLD && prediction < BLANK_THRESHOLD
+        ? 'orange'
+        : (label ? (prediction >= BLANK_THRESHOLD ? 'green' : 'red') : (prediction <= DIGIT_THRESHOLD ? 'green' : 'red'))
+      ctx.strokeStyle = colour
+      ctx.strokeRect(...gridSquare)
+    }
+  }
+}
+
 const onPredictDigitsTestData = async () => {
   const { xs, ys } = await loadDigitData(testData)
   const labels = ys.argMax(1)
@@ -502,9 +663,9 @@ const onPredictDigitsTestData = async () => {
 }
 
 const onPredictDigitsTestData2 = async () => {
-  const digitData = await loadDigitData2(testData)
-  for (const digitDatum of digitData) {
-    const { xs, ys, gridImageTensor, digitsAndGridSquares } = digitDatum
+  const data = await loadDigitData2(testData)
+  for (const datum of data) {
+    const { xs, ys, gridImageTensor, digitsAndGridSquares } = datum
     const labels = ys.argMax(1).arraySync()
     const outputs = digitsModel.predict(xs)
     const predictions = outputs.argMax(1).arraySync()
@@ -522,6 +683,9 @@ const onPredictDigitsTestData2 = async () => {
 const trainGridBtn = document.getElementById('trainGridBtn')
 trainGridBtn.addEventListener('click', onTrainGrid)
 
+const trainBlanksBtn = document.getElementById('trainBlanksBtn')
+trainBlanksBtn.addEventListener('click', onTrainBlanks)
+
 const trainDigitsBtn = document.getElementById('trainDigitsBtn')
 trainDigitsBtn.addEventListener('click', onTrainDigits)
 
@@ -533,7 +697,13 @@ const predictGridTestDataBtn = document.getElementById('predictGridTestDataBtn')
 predictGridTestDataBtn.addEventListener('click', onPredictGridTestData)
 predictGridTestDataBtn.disabled = true
 
+const predictBlanksTestDataBtn = document.getElementById('predictBlanksTestDataBtn')
+predictBlanksTestDataBtn.addEventListener('click', onPredictBlanksTestData)
+predictBlanksTestDataBtn.addEventListener('click', onPredictBlanksTestData2)
+predictBlanksTestDataBtn.disabled = true
+
 const predictDigitsTestDataBtn = document.getElementById('predictDigitsTestDataBtn')
+predictDigitsTestDataBtn.addEventListener('click', onPredictDigitsTestData)
 predictDigitsTestDataBtn.addEventListener('click', onPredictDigitsTestData2)
 predictDigitsTestDataBtn.disabled = true
 
