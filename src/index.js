@@ -709,21 +709,24 @@ const onPredictBlanksAndDigitsTestData = async () => {
     }
 
     const xsarr = tf.unstack(xs)
-    for (const { index, digit, gridSquare } of digits) {
-      console.log(`index: ${index}; digit: ${digit}`)
+    const indexedDigitPredictions = digits.map(({ index, digit, gridSquare }) => {
       const x = xsarr[index]
       const inputs = tf.stack([x])
-      console.log(`inputs.shape: ${inputs.shape}`)
       const outputs = digitsModel.predict(inputs)
-      console.log(`outputs.shape: ${outputs.shape}`)
-      const v1 = outputs.argMax(1)
-      const v2 = v1.arraySync()
-      const digitPrediction = v2[0] + 1
+      const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
       ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
       ctx.strokeRect(...gridSquare)
-    }
+      return { digitPrediction, index }
+    })
 
-    // TODO: draw the Sudoku grid using SVG...
+    const seed = Array(81).fill(' ')
+    const reducer = (acc, { digitPrediction, index }) => R.update(index, digitPrediction, acc)
+    const flattenedInitialValues = R.reduce(reducer, seed, indexedDigitPredictions)
+    const initialValues = R.splitEvery(9, flattenedInitialValues).map(R.join(''))
+    console.log(`Puzzle ${datum.item.puzzleId}; URL: ${datum.item.url}`)
+    initialValues.forEach(line => console.log(line))
+
+    // drawInitialGrid(initialValues)
   }
 }
 
