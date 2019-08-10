@@ -10,12 +10,14 @@
 
 <body>
   <div class="container">
+
     <div class="row">
       <div class="version pull-right">(version: <%= htmlWebpackPlugin.options.version %>)</div>
     </div>
     <div class="row">
       <hr />
     </div>
+
     <div class="row">
       <h1>Training - Grid</h1>
       <button id="trainGridBtn" class="btn btn-primary btn-xs">Train</button>
@@ -37,6 +39,7 @@
     <div class="row">
       <hr />
     </div>
+
     <div class="row">
       <h1>Predictions - Grid</h1>
       <button id="predictGridTestDataBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
@@ -61,6 +64,15 @@
     <div class="row">
       <hr />
     </div>
+    <div class="row">
+      <h1>Predictions - Blanks and Digits</h1>
+      <button id="predictBlanksAndDigitsTestDataBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
+      <div id="predictBlanksAndTestDataResults"></div>
+    </div>
+    <div class="row">
+      <hr />
+    </div>
+
     <div class="row">
       <h1>Capturing</h1>
       <div style="text-align: center; margin-bottom: 5px;">

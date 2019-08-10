@@ -2,6 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import * as tfvis from '@tensorflow/tfjs-vis'
 import * as R from 'ramda'
 import axios from 'axios'
+
 import puzzles from '../data/puzzles.json'
 import trainingData from '../data/training-data.json'
 import validationData from '../data/validation-data.json'
@@ -10,9 +11,11 @@ import testData from '../data/test-data.json'
 let gridModel = undefined
 let blanksModel = undefined
 let digitsModel = undefined
+
 let trainedGrid = false
 let trainedBlanks = false
 let trainedDigits = false
+
 let imageData = undefined
 
 const GRID_IMAGE_HEIGHT = 224
@@ -66,20 +69,20 @@ const drawGridImageTensor = async (parentElement, imageTensor, boundingBoxTarget
   return canvas
 }
 
-const drawDigitImageTensors = async (parentElement, tensor4d, url) => {
-  const ps = tf.unstack(tensor4d).map(async (imageTensor, index) => {
-    const canvas = document.createElement('canvas')
-    canvas.setAttribute('class', 'digit-image')
-    await tf.browser.toPixels(imageTensor, canvas)
-    if (index === 0) {
-      const div = document.createElement('div')
-      div.innerText = url
-      parentElement.appendChild(div)
-    }
-    parentElement.appendChild(canvas)
-  })
-  await Promise.all(ps)
-}
+// const drawDigitImageTensors = async (parentElement, tensor4d, url) => {
+//   const ps = tf.unstack(tensor4d).map(async (imageTensor, index) => {
+//     const canvas = document.createElement('canvas')
+//     canvas.setAttribute('class', 'digit-image')
+//     await tf.browser.toPixels(imageTensor, canvas)
+//     if (index === 0) {
+//       const div = document.createElement('div')
+//       div.innerText = url
+//       parentElement.appendChild(div)
+//     }
+//     parentElement.appendChild(canvas)
+//   })
+//   await Promise.all(ps)
+// }
 
 const convertToGreyscale = imageData => {
   const w = imageData.width
@@ -139,7 +142,7 @@ async function* gridDataGenerator(data) {
 
 // Probably need to use tf.tidy somewhere in here ?
 const cropDigitImagesFromGridImage = (item, gridImageTensor) => {
-  const { puzzleId, url, boundingBox, } = item
+  const { puzzleId, boundingBox, } = item
   const gridSquares = Array.from(calculateGridSquares(boundingBox))
   const puzzle = puzzles.find(p => p.id === puzzleId)
   const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))
@@ -159,18 +162,23 @@ const cropDigitImagesFromGridImage = (item, gridImageTensor) => {
   const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
   const ys = tf.oneHot(zeroBasedDigits, 9)
   // const body = document.querySelector('body')
-  // drawDigitImageTensors(body, xs, url)
+  // drawDigitImageTensors(body, xs, item.url)
   return { xs, ys, item, puzzle, gridImageTensor, digitsAndGridSquares }
 }
 
 // Probably need to use tf.tidy somewhere in here ?
 const cropAllGridSquareImagesFromGridImage = (item, gridImageTensor) => {
-  const { puzzleId, url, boundingBox, } = item
+  const { puzzleId, boundingBox, } = item
   const gridSquares = Array.from(calculateGridSquares(boundingBox))
   const puzzle = puzzles.find(p => p.id === puzzleId)
   const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))
   const gridSquaresWithDetails = flattenedInitialValues
-    .map((ch, index) => ({ isBlank: ch === ' ', index, gridSquare: gridSquares[index] }))
+    .map((ch, index) => ({
+      isBlank: ch === ' ',
+      digit: Number(ch),
+      index,
+      gridSquare: gridSquares[index]
+    }))
   const image = tf.stack([gridImageTensor.div(255)])
   const normaliseX = x => x / (GRID_IMAGE_WIDTH - 1)
   const normaliseY = y => y / (GRID_IMAGE_HEIGHT - 1)
@@ -182,7 +190,7 @@ const cropAllGridSquareImagesFromGridImage = (item, gridImageTensor) => {
   const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
   const ys = tf.tensor1d(gridSquaresWithDetails.map(({ isBlank }) => isBlank ? 1 : 0))
   // const body = document.querySelector('body')
-  // drawDigitImageTensors(body, xs, url)
+  // drawDigitImageTensors(body, xs, item.url)
   return { xs, ys, item, puzzle, gridImageTensor, gridSquaresWithDetails }
 }
 
@@ -340,8 +348,7 @@ const createDigitsModel = () => {
 const trainGrid = async model => {
 
   model.compile({
-    // optimizer: 'rmsprop',
-    optimizer: 'adam',
+    optimizer: 'rmsprop',
     loss: 'meanSquaredError'
   })
 
@@ -367,7 +374,7 @@ const trainGrid = async model => {
 const trainBlanks = async model => {
 
   model.compile({
-    optimizer: 'adam',
+    optimizer: 'rmsprop',
     loss: 'binaryCrossentropy',
     metrics: ['accuracy']
   })
@@ -552,7 +559,7 @@ const onTrainGrid = async () => {
     console.log('last loss:', lastLoss, 'sqrt:', Math.sqrt(lastLoss))
     console.log('last val_loss:', lastValLoss, 'sqrt:', Math.sqrt(lastValLoss))
     trainedGrid = true
-    predictGridTestDataBtn.disabled = false
+    updatePredictButtonStates()
   } finally {
     trainGridBtn.disabled = false
   }
@@ -564,7 +571,7 @@ const onTrainBlanks = async () => {
     blanksModel = createBlanksModel()
     await trainBlanks(blanksModel)
     trainedBlanks = true
-    predictBlanksTestDataBtn.disabled = false
+    updatePredictButtonStates()
   } finally {
     trainBlanksBtn.disabled = false
   }
@@ -576,7 +583,7 @@ const onTrainDigits = async () => {
     digitsModel = createDigitsModel()
     await trainDigits(digitsModel)
     trainedDigits = true
-    predictDigitsTestDataBtn.disabled = false
+    updatePredictButtonStates()
   } finally {
     trainDigitsBtn.disabled = false
   }
@@ -680,6 +687,54 @@ const onPredictDigitsTestData2 = async () => {
   }
 }
 
+const onPredictBlanksAndDigitsTestData = async () => {
+  const data = await loadAllGridSquaresData2(testData)
+  for (const datum of data) {
+    const { xs, gridImageTensor, gridSquaresWithDetails } = datum
+    console.log(`xs.shape: ${xs.shape}`)
+    const blanksPredictions = blanksModel.predict(xs).arraySync()
+    if (blanksPredictions.some(p => p > DIGIT_THRESHOLD && p < BLANK_THRESHOLD)) {
+      continue
+    }
+    const [blanks, digits] = R.partition(({ index }) =>
+      blanksPredictions[index] >= BLANK_THRESHOLD, gridSquaresWithDetails)
+
+    const body = document.querySelector('body')
+    const canvas = await drawGridImageTensor(body, gridImageTensor)
+    const ctx = canvas.getContext('2d')
+
+    for (const { isBlank, gridSquare } of blanks) {
+      ctx.strokeStyle = isBlank ? 'green' : 'red'
+      ctx.strokeRect(...gridSquare)
+    }
+
+    const xsarr = tf.unstack(xs)
+    for (const { index, digit, gridSquare } of digits) {
+      console.log(`index: ${index}; digit: ${digit}`)
+      const x = xsarr[index]
+      const inputs = tf.stack([x])
+      console.log(`inputs.shape: ${inputs.shape}`)
+      const outputs = digitsModel.predict(inputs)
+      console.log(`outputs.shape: ${outputs.shape}`)
+      const v1 = outputs.argMax(1)
+      const v2 = v1.arraySync()
+      const digitPrediction = v2[0] + 1
+      ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
+      ctx.strokeRect(...gridSquare)
+    }
+
+    // TODO: draw the Sudoku grid using SVG...
+  }
+}
+
+const updatePredictButtonStates = () => {
+  predictGridTestDataBtn.disabled = !trainedGrid
+  predictBlanksTestDataBtn.disabled = !trainedBlanks
+  predictDigitsTestDataBtn.disabled = !trainedDigits
+  predictBlanksAndDigitsTestDataBtn.disabled = !(trainedBlanks && trainedDigits)
+  predictCaptureBtn.disabled = true
+}
+
 const trainGridBtn = document.getElementById('trainGridBtn')
 trainGridBtn.addEventListener('click', onTrainGrid)
 
@@ -689,23 +744,24 @@ trainBlanksBtn.addEventListener('click', onTrainBlanks)
 const trainDigitsBtn = document.getElementById('trainDigitsBtn')
 trainDigitsBtn.addEventListener('click', onTrainDigits)
 
-const predictCaptureBtn = document.getElementById('predictCaptureBtn')
-predictCaptureBtn.addEventListener('click', onPredictCapture)
-predictCaptureBtn.disabled = true
-
 const predictGridTestDataBtn = document.getElementById('predictGridTestDataBtn')
 predictGridTestDataBtn.addEventListener('click', onPredictGridTestData)
-predictGridTestDataBtn.disabled = true
 
 const predictBlanksTestDataBtn = document.getElementById('predictBlanksTestDataBtn')
 predictBlanksTestDataBtn.addEventListener('click', onPredictBlanksTestData)
 predictBlanksTestDataBtn.addEventListener('click', onPredictBlanksTestData2)
-predictBlanksTestDataBtn.disabled = true
 
 const predictDigitsTestDataBtn = document.getElementById('predictDigitsTestDataBtn')
 predictDigitsTestDataBtn.addEventListener('click', onPredictDigitsTestData)
 predictDigitsTestDataBtn.addEventListener('click', onPredictDigitsTestData2)
-predictDigitsTestDataBtn.disabled = true
+
+const predictBlanksAndDigitsTestDataBtn = document.getElementById('predictBlanksAndDigitsTestDataBtn')
+predictBlanksAndDigitsTestDataBtn.addEventListener('click', onPredictBlanksAndDigitsTestData)
+
+const predictCaptureBtn = document.getElementById('predictCaptureBtn')
+predictCaptureBtn.addEventListener('click', onPredictCapture)
+
+updatePredictButtonStates()
 
 const main = async () => {
   drawGuides()
