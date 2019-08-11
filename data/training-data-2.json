@@ -1,0 +1,184 @@
+[
+    {
+        "puzzleId": 1,
+        "url": "/normalisedImages/00054.png",
+        "boundingBox": [
+            99,
+            87,
+            108,
+            108
+        ]
+    },
+    {
+        "puzzleId": 1,
+        "url": "/normalisedImages/00055.png",
+        "boundingBox": [
+            23,
+            40,
+            130,
+            130
+        ]
+    },    {
+        "puzzleId": 1,
+        "url": "/normalisedImages/00056.png",
+        "boundingBox": [
+            89,
+            33,
+            113,
+            113
+        ]
+    },    {
+        "puzzleId": 1,
+        "url": "/normalisedImages/00057.png",
+        "boundingBox": [
+            25,
+            64,
+            119,
+            117
+        ]
+    },    {
+        "puzzleId": 8,
+        "url": "/normalisedImages/00058.png",
+        "boundingBox": [
+            24,
+            42,
+            108,
+            105
+        ]
+    },    {
+        "puzzleId": 8,
+        "url": "/normalisedImages/00059.png",
+        "boundingBox": [
+            75,
+            59,
+            128,
+            129
+        ]
+    },    {
+        "puzzleId": 8,
+        "url": "/normalisedImages/00060.png",
+        "boundingBox": [
+            78,
+            29,
+            126,
+            127
+        ]
+    },    {
+        "puzzleId": 8,
+        "url": "/normalisedImages/00061.png",
+        "boundingBox": [
+            27,
+            68,
+            139,
+            138
+        ]
+    },    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00062.png",
+        "boundingBox": [
+            29,
+            38,
+            128,
+            127
+        ]
+    },    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00063.png",
+        "boundingBox": [
+            72,
+            38,
+            129,
+            128
+        ]
+    },    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00064.png",
+        "boundingBox": [
+            25,
+            76,
+            117,
+            118
+        ]
+    },    {
+        "puzzleId": 4,
+        "url": "/normalisedImages/00065.png",
+        "boundingBox": [
+            21,
+            32,
+            123,
+            123
+        ]
+    },    {
+        "puzzleId": 2,
+        "url": "/normalisedImages/00066.png",
+        "boundingBox": [
+            45,
+            65,
+            138,
+            139
+        ]
+    },    {
+        "puzzleId": 2,
+        "url": "/normalisedImages/00067.png",
+        "boundingBox": [
+            42,
+            34,
+            125,
+            126
+        ]
+    },    {
+        "puzzleId": 3,
+        "url": "/normalisedImages/00068.png",
+        "boundingBox": [
+            51,
+            25,
+            119,
+            117
+        ]
+    },    {
+        "puzzleId": 3,
+        "url": "/normalisedImages/00069.png",
+        "boundingBox": [
+            83,
+            40,
+            122,
+            121
+        ]
+    },    {
+        "puzzleId": 5,
+        "url": "/normalisedImages/00070.png",
+        "boundingBox": [
+            51,
+            81,
+            113,
+            113
+        ]
+    },    {
+        "puzzleId": 5,
+        "url": "/normalisedImages/00071.png",
+        "boundingBox": [
+            32,
+            97,
+            107,
+            108
+        ]
+    },    {
+        "puzzleId": 7,
+        "url": "/normalisedImages/00072.png",
+        "boundingBox": [
+            28,
+            75,
+            131,
+            132
+        ]
+    },    {
+        "puzzleId": 7,
+        "url": "/normalisedImages/00073.png",
+        "boundingBox": [
+            91,
+            36,
+            117,
+            116
+        ]
+    }
+]
