@@ -30,7 +30,8 @@ module.exports = {
     proxy: {
       '/api': 'http://localhost:3060',
       '/rawImages': 'http://localhost:3060',
-      '/normalisedImages': 'http://localhost:3060'
+      '/normalisedImages': 'http://localhost:3060',
+      '/models': 'http://localhost:3060'
     }
   }
 }

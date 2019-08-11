@@ -1,10 +1,25 @@
 const express = require('express')
 const path = require('path')
 const fs = require('fs').promises
+const multer = require('multer')
 
 const PNG_EXT = '.png'
 
-const configureApiRouter = (rawImagesFolder, normalisedImagesFolder) => {
+const configureApiRouter = (rawImagesFolder, normalisedImagesFolder, modelsFolder) => {
+
+  const myDiskStorage = multer.diskStorage({
+    destination: function (req, _file, cb) {
+      const dest = req.params.model
+        ? path.resolve(modelsFolder, req.params.model)
+        : modelsFolder
+      cb(null, dest)
+    },
+    filename: function (_req, file, cb) {
+      cb(null, file.fieldname)
+    }
+  })
+
+  const upload = multer({ storage: myDiskStorage })
 
   const numberToFileName = n =>
     `${n.toString().padStart(5, 0)}${PNG_EXT}`
@@ -50,17 +65,27 @@ const configureApiRouter = (rawImagesFolder, normalisedImagesFolder) => {
     res.json(filteredFileNames)
   }
 
-  const onListRawImages = async (_, res) =>
+  const onListRawImages = async (_req, res) =>
     listImages(res, rawImagesFolder)
 
-  const onListNormalisedImages = async (_, res) =>
+  const onListNormalisedImages = async (_req, res) =>
     listImages(res, normalisedImagesFolder)
+
+  const onSaveModel = async (_req, res) => {
+    res.end()
+  }
+
+  const fields = [
+    { name: 'model.json', maxCount: 1 },
+    { name: 'model.weights.bin', maxCount: 1 }
+  ]
 
   const apiRouter = express.Router()
   apiRouter.post('/saveRawImage', onSaveRawImage)
   apiRouter.post('/saveNormalisedImage', onSaveNormalisedImage)
   apiRouter.get('/listRawImages', onListRawImages)
   apiRouter.get('/listNormalisedImages', onListNormalisedImages)
+  apiRouter.post('/saveModel/:model', upload.fields(fields), onSaveModel)
   return apiRouter
 }
 

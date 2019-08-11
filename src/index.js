@@ -395,7 +395,7 @@ const trainBlanks = async model => {
 
   const params = {
     batchSize: 100,
-    epochs: 10,
+    epochs: 5,
     shuffle: true,
     validationSplit: 0.15,
     callbacks: customCallback
@@ -426,7 +426,7 @@ const trainDigits = async model => {
   )
 
   const params = {
-    batchSize: 25,
+    batchSize: 10,
     epochs: 20,
     shuffle: true,
     validationSplit: 0.15,
@@ -435,14 +435,6 @@ const trainDigits = async model => {
 
   return model.fit(xs, ys, params)
 }
-
-// const createSvgElement = (elementName, additionalAttributes = {}) => {
-//   const element = document.createElementNS('http://www.w3.org/2000/svg', elementName)
-//   for (const [name, value] of Object.entries(additionalAttributes)) {
-//     element.setAttribute(name, value)
-//   }
-//   return element
-// }
 
 const createVideoGuide = d =>
   createSvgElement('path', { d, class: 'video-guide' })
@@ -560,7 +552,7 @@ const onTrainGrid = async () => {
     console.log('last loss:', lastLoss, 'sqrt:', Math.sqrt(lastLoss))
     console.log('last val_loss:', lastValLoss, 'sqrt:', Math.sqrt(lastValLoss))
     trainedGrid = true
-    updatePredictButtonStates()
+    updateButtonStates()
   } finally {
     trainGridBtn.disabled = false
   }
@@ -572,7 +564,7 @@ const onTrainBlanks = async () => {
     blanksModel = createBlanksModel()
     await trainBlanks(blanksModel)
     trainedBlanks = true
-    updatePredictButtonStates()
+    updateButtonStates()
   } finally {
     trainBlanksBtn.disabled = false
   }
@@ -584,7 +576,7 @@ const onTrainDigits = async () => {
     digitsModel = createDigitsModel()
     await trainDigits(digitsModel)
     trainedDigits = true
-    updatePredictButtonStates()
+    updateButtonStates()
   } finally {
     trainDigitsBtn.disabled = false
   }
@@ -760,12 +752,51 @@ const onPredictBlanksAndDigitsTestData = async () => {
   }
 }
 
-const updatePredictButtonStates = () => {
+const onSaveBlanksModel = async () => {
+  try {
+    const saveResult = await blanksModel.save(`${location.origin}/api/saveModel/blanks`)
+    console.dir(saveResult)
+  } catch (error) {
+    console.log(`[onSaveBlanks] ERROR: ${error.message}`)
+  }
+}
+
+const onLoadBlanksModel = async () => {
+  try {
+    blanksModel = await tf.loadLayersModel(`${location.origin}/models/blanks/model.json`)
+    trainedBlanks = true
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onLoadBlanks] ERROR: ${error.message}`)
+  }
+}
+
+const onSaveDigitsModel = async () => {
+  try {
+    const saveResult = await digitsModel.save(`${location.origin}/api/saveModel/digits`)
+    console.dir(saveResult)
+  } catch (error) {
+    console.log(`[onSaveDigitsModel] ERROR: ${error.message}`)
+  }
+}
+
+const onLoadDigitsModel = async () => {
+  try {
+    digitsModel = await tf.loadLayersModel(`${location.origin}/models/digits/model.json`)
+    trainedDigits = true
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onLoadDigitsModel] ERROR: ${error.message}`)
+  }
+}
+
+const updateButtonStates = () => {
   predictGridTestDataBtn.disabled = !trainedGrid
   predictBlanksTestDataBtn.disabled = !trainedBlanks
   predictDigitsTestDataBtn.disabled = !trainedDigits
   predictBlanksAndDigitsTestDataBtn.disabled = !(trainedBlanks && trainedDigits)
   predictCaptureBtn.disabled = true
+  saveBlanksBtn.disabled = !trainedBlanks
 }
 
 const trainGridBtn = document.getElementById('trainGridBtn')
@@ -774,8 +805,20 @@ trainGridBtn.addEventListener('click', onTrainGrid)
 const trainBlanksBtn = document.getElementById('trainBlanksBtn')
 trainBlanksBtn.addEventListener('click', onTrainBlanks)
 
+const saveBlanksBtn = document.getElementById('saveBlanksBtn')
+saveBlanksBtn.addEventListener('click', onSaveBlanksModel)
+
+const loadBlanksBtn = document.getElementById('loadBlanksBtn')
+loadBlanksBtn.addEventListener('click', onLoadBlanksModel)
+
 const trainDigitsBtn = document.getElementById('trainDigitsBtn')
 trainDigitsBtn.addEventListener('click', onTrainDigits)
+
+const saveDigitsBtn = document.getElementById('saveDigitsBtn')
+saveDigitsBtn.addEventListener('click', onSaveDigitsModel)
+
+const loadDigitsBtn = document.getElementById('loadDigitsBtn')
+loadDigitsBtn.addEventListener('click', onLoadDigitsModel)
 
 const predictGridTestDataBtn = document.getElementById('predictGridTestDataBtn')
 predictGridTestDataBtn.addEventListener('click', onPredictGridTestData)
@@ -794,7 +837,7 @@ predictBlanksAndDigitsTestDataBtn.addEventListener('click', onPredictBlanksAndDi
 const predictCaptureBtn = document.getElementById('predictCaptureBtn')
 predictCaptureBtn.addEventListener('click', onPredictCapture)
 
-updatePredictButtonStates()
+updateButtonStates()
 
 const main = async () => {
   drawGuides()
