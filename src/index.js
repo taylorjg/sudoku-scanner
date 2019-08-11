@@ -2,6 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import * as tfvis from '@tensorflow/tfjs-vis'
 import * as R from 'ramda'
 import axios from 'axios'
+import { createSvgElement, drawInitialGrid } from './svg'
 
 import puzzles from '../data/puzzles.json'
 import trainingData from '../data/training-data.json'
@@ -33,8 +34,8 @@ function* calculateGridSquares(boundingBox) {
   const [bbx, bby, bbw, bbh] = boundingBox
   const w = bbw / 9
   const h = bbh / 9
-  const dx = w / 10
-  const dy = h / 10
+  const dx = 2 // w / 10
+  const dy = 2 // h / 10
   for (const row of R.range(0, 9)) {
     const y = bby + row * h
     for (const col of R.range(0, 9)) {
@@ -435,13 +436,13 @@ const trainDigits = async model => {
   return model.fit(xs, ys, params)
 }
 
-const createSvgElement = (elementName, additionalAttributes = {}) => {
-  const element = document.createElementNS('http://www.w3.org/2000/svg', elementName)
-  for (const [name, value] of Object.entries(additionalAttributes)) {
-    element.setAttribute(name, value)
-  }
-  return element
-}
+// const createSvgElement = (elementName, additionalAttributes = {}) => {
+//   const element = document.createElementNS('http://www.w3.org/2000/svg', elementName)
+//   for (const [name, value] of Object.entries(additionalAttributes)) {
+//     element.setAttribute(name, value)
+//   }
+//   return element
+// }
 
 const createVideoGuide = d =>
   createSvgElement('path', { d, class: 'video-guide' })
@@ -622,8 +623,8 @@ const onPredictGridTestData = async () => {
   })
 }
 
-const BLANK_THRESHOLD = 0.95
-const DIGIT_THRESHOLD = 0.05
+const BLANK_THRESHOLD = 0.9
+const DIGIT_THRESHOLD = 0.1
 
 const onPredictBlanksTestData = async () => {
   const { xs, ys } = await loadAllGridSquaresData(testData)
@@ -690,21 +691,39 @@ const onPredictDigitsTestData2 = async () => {
 const onPredictBlanksAndDigitsTestData = async () => {
   const data = await loadAllGridSquaresData2(testData)
   for (const datum of data) {
+
     const { xs, gridImageTensor, gridSquaresWithDetails } = datum
-    console.log(`xs.shape: ${xs.shape}`)
+
+    const parentElement = document.querySelector('body')
+    parentElement.appendChild(document.createElement('br'))
+    const canvas = await drawGridImageTensor(parentElement, gridImageTensor)
+    const ctx = canvas.getContext('2d')
+
     const blanksPredictions = blanksModel.predict(xs).arraySync()
+
     if (blanksPredictions.some(p => p > DIGIT_THRESHOLD && p < BLANK_THRESHOLD)) {
+      const [x, y, w, h] = datum.item.boundingBox
+      const tl = [x, y]
+      const tr = [x + w, y]
+      const bl = [x, y + h]
+      const br = [x + h, y + h]
+      ctx.beginPath()
+      ctx.moveTo(...tl)
+      ctx.lineTo(...br)
+      ctx.moveTo(...tr)
+      ctx.lineTo(...bl)
+      ctx.lineWidth = 5
+      ctx.strokeStyle = 'red'
+      ctx.stroke()
       continue
     }
+
     const [blanks, digits] = R.partition(({ index }) =>
       blanksPredictions[index] >= BLANK_THRESHOLD, gridSquaresWithDetails)
 
-    const body = document.querySelector('body')
-    const canvas = await drawGridImageTensor(body, gridImageTensor)
-    const ctx = canvas.getContext('2d')
-
     for (const { isBlank, gridSquare } of blanks) {
       ctx.strokeStyle = isBlank ? 'green' : 'red'
+      ctx.lineWidth = 1
       ctx.strokeRect(...gridSquare)
     }
 
@@ -715,6 +734,7 @@ const onPredictBlanksAndDigitsTestData = async () => {
       const outputs = digitsModel.predict(inputs)
       const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
       ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
+      ctx.lineWidth = 1
       ctx.strokeRect(...gridSquare)
       return { digitPrediction, index }
     })
@@ -726,7 +746,17 @@ const onPredictBlanksAndDigitsTestData = async () => {
     console.log(`Puzzle ${datum.item.puzzleId}; URL: ${datum.item.url}`)
     initialValues.forEach(line => console.log(line))
 
-    // drawInitialGrid(initialValues)
+    const svgElement = createSvgElement('svg', { 'class': 'sudoku-grid' })
+    parentElement.appendChild(svgElement)
+    const rows = indexedDigitPredictions.map(({ digitPrediction, index }) => ({
+      coords: {
+        row: Math.trunc(index / 9),
+        col: index % 9
+      },
+      isInitialValue: true,
+      value: digitPrediction
+    }))
+    drawInitialGrid(svgElement, rows)
   }
 }
 

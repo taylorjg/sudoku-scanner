@@ -52,3 +52,22 @@
 .digit-image {
   margin: 2px;
 }
+
+.sudoku-grid {
+  width: 224px;
+  height: 224px;  
+}
+
+.grid-line {
+  stroke: #888;
+}
+
+.initial-value {
+  fill: magenta;
+  font-size: 16px;
+}
+
+.calculated-value {
+  fill: black;
+  font-size: 16px;
+}
