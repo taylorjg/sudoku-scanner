@@ -615,8 +615,8 @@ const onPredictGridTestData = async () => {
   })
 }
 
-const BLANK_THRESHOLD = 0.9
-const DIGIT_THRESHOLD = 0.1
+const BLANK_THRESHOLD = 0.75
+const DIGIT_THRESHOLD = 0.25
 
 const onPredictBlanksTestData = async () => {
   const { xs, ys } = await loadAllGridSquaresData(testData)

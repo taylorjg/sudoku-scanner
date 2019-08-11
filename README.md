@@ -9,6 +9,20 @@ My plan is to use [TensorFlow.js](https://www.tensorflow.org/js) to:
 * Train a model to detect blank grid squares
 * Train a model to recognise digits 1-9
 
+## Instructions
+
+* Open https://sudoku-scanner.herokuapp.com/
+* Click 'Load' under 'Training - Blanks'
+* Click 'Load' under 'Training - Digits'
+* Click 'Predict Test Data' under 'Predictions - Blanks and Digits'
+* Scroll down to see the results of attempting to recognise the 10 test images
+* Currently, I need to provide the bounding box (via the [test data](data/test-data.json))
+* It does the following:
+    * Uses the provided bounding box to calculate the positions of the grid squares
+    * Uses the 'blanks' model to distinguish between blanks and digits
+    * Uses the 'digits' model to recognise the digits
+* A big red cross means that it failed to convincingly distinguish between blanks/digits
+
 # TODO
 
 * Train a model to recognise the bounding box of a Sudoku puzzle
@@ -23,6 +37,10 @@ My plan is to use [TensorFlow.js](https://www.tensorflow.org/js) to:
 * Bring all the parts together
     * Currently, it does a reasonable job of reading the grid if I provide the bounding box
     * The remaining work is to be able to detect the bounding box
+* Split the current single index.html page into separate pages for:
+    * capturing and saving images for training, validation and test
+    * training and saving models for recognising bounding boxes, blanks and digits
+    * loading trained models and using them to scan newly captured images
 
 # Links
 
