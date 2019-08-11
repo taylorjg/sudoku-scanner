@@ -23,6 +23,12 @@ My plan is to use [TensorFlow.js](https://www.tensorflow.org/js) to:
     * Uses the 'digits' model to recognise the digits
 * A big red cross means that it failed to convincingly distinguish between blanks/digits
 
+![This scan was successful](screenshots/successful-scan.png)
+
+![This scan failed](screenshots/failed-scan.png)
+
+![This scan was fairly close](screenshots/almost.png)
+
 # TODO
 
 * Train a model to recognise the bounding box of a Sudoku puzzle
@@ -33,7 +39,7 @@ My plan is to use [TensorFlow.js](https://www.tensorflow.org/js) to:
         * Maybe the target should be the coords for the start/end of the 4 inner major box lines instead of the bounding box ?
 * ~~Train a model to distinguish between blank and non-blank grid squares~~
 * ~~Train a model to recognise digits 1-9~~
-* Add the ability to save and load named sets of trained model data
+* ~~Add the ability to save and load named sets of trained model data~~
 * Bring all the parts together
     * Currently, it does a reasonable job of reading the grid if I provide the bounding box
     * The remaining work is to be able to detect the bounding box
