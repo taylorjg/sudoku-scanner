@@ -46,39 +46,62 @@ function* calculateGridSquares(boundingBox) {
   }
 }
 
-const drawGridSquares = (ctx, boundingBox, colour) => {
-  for (const gridSquare of calculateGridSquares(boundingBox)) {
-    ctx.strokeStyle = colour
-    ctx.strokeRect(...gridSquare)
-  }
+const calculateCorners = boundingBox => {
+  const [bbx, bby, bbw, bbh] = boundingBox
+  const DELTA_X = 20
+  const DELTA_Y = 20
+  // const DELTA_X = bbw / 3
+  // const DELTA_Y = bbh / 3
+  const left = ([x, y]) => [x - DELTA_X, y]
+  const right = ([x, y]) => [x + DELTA_X, y]
+  const up = ([x, y]) => [x, y - DELTA_Y]
+  const down = ([x, y]) => [x, y + DELTA_Y]
+  const tl = [bbx, bby]
+  const tr = [bbx + bbw, bby]
+  const br = [bbx + bbw, bby + bbh]
+  const bl = [bbx, bby + bbh]
+  return R.flatten([
+    down(tl), tl, right(tl),
+    left(tr), tr, down(tr),
+    up(br), br, left(br),
+    right(bl), bl, up(bl)
+  ])
 }
 
-// const drawMajorInnerGridLines = (ctx, coordsList, colour) => {
-//   ctx.beginPath()
-//   R.range(0, 4).forEach(idx => {
-//     const [x1, y1, x2, y2] = coordsList.slice(idx * 4)
-//     ctx.moveTo(x1, y1)
-//     ctx.lineTo(x2, y2)
-//   })
-//   ctx.strokeStyle = colour
-//   ctx.lineWidth = 1
-//   ctx.stroke()
+const drawCorners = (canvas, corners, colour) => {
+  const ctx = canvas.getContext('2d')
+  const groupsOfCornerPoints = R.splitEvery(6, corners)
+  groupsOfCornerPoints.forEach(([x1, y1, x2, y2, x3, y3]) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.lineTo(x3, y3)
+    ctx.strokeStyle = colour
+    ctx.lineWidth = 2
+    ctx.stroke()
+  })
+}
+
+// const drawGridSquares = (canvas, boundingBox, colour) => {
+//   const ctx = canvas.getContext('2d')
+//   for (const gridSquare of calculateGridSquares(boundingBox)) {
+//     ctx.strokeStyle = colour
+//     ctx.strokeRect(...gridSquare)
+//   }
 // }
 
-const drawGridImageTensor = async (parentElement, imageTensor, boundingBoxTarget, boundingBoxPrediction) => {
+// const drawBoundingBox = (canvas, boundingBox, colour) => {
+//   const ctx = canvas.getContext('2d')
+//   ctx.beginPath()
+//   ctx.strokeStyle = colour
+//   ctx.lineWidth = 1
+//   ctx.strokeRect(...boundingBox)
+// }
+
+const drawGridImageTensor = async (parentElement, imageTensor) => {
   const canvas = document.createElement('canvas')
   canvas.setAttribute('class', 'grid-image')
   await tf.browser.toPixels(imageTensor, canvas)
-  const ctx = canvas.getContext('2d')
-  if (boundingBoxTarget) {
-    ctx.strokeStyle = 'blue'
-    ctx.strokeRect(...boundingBoxTarget)
-  }
-  if (boundingBoxPrediction) {
-    ctx.strokeStyle = 'red'
-    ctx.strokeRect(...boundingBoxPrediction)
-    drawGridSquares(ctx, boundingBoxPrediction, 'red')
-  }
   parentElement.appendChild(canvas)
   return canvas
 }
@@ -104,6 +127,7 @@ const convertToGreyscale = imageData => {
   return new ImageData(array, w, h)
 }
 
+// key: url, value: tensor3d
 const GRID_IMAGE_CACHE = new Map()
 
 const loadImage = async url => {
@@ -121,12 +145,18 @@ const loadImage = async url => {
 }
 
 const loadGridData = async data => {
+  const cornersArray = data.map(item => calculateCorners(item.boundingBox))
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
   const imageTensors = await Promise.all(promises)
-  const boundingBoxes = R.pluck('boundingBox', data)
+  const parentElement = document.querySelector('body')
+  imageTensors.forEach(async (imageTensor, index) => {
+    const canvas = await drawGridImageTensor(parentElement, imageTensor)
+    const corners = cornersArray[index]
+    drawCorners(canvas, corners, 'blue')
+  })
   const xs = tf.stack(imageTensors)
-  const ys = tf.tensor2d(boundingBoxes, undefined, 'int32')
+  const ys = tf.tensor2d(cornersArray, undefined, 'int32')
   return { xs, ys }
 }
 
@@ -238,9 +268,10 @@ const createGridModel = () => {
 
   const inputShape = [GRID_IMAGE_HEIGHT, GRID_IMAGE_WIDTH, GRID_IMAGE_CHANNELS]
   const conv2dArgs = {
-    kernelSize: 3,
-    filters: 32,
-    activation: 'sigmoid',
+    kernelSize: 7,
+    filters: 8,
+    // activation: 'sigmoid',
+    activation: 'tanh',
     strides: 1,
     kernelInitializer: 'varianceScaling'
   }
@@ -253,19 +284,18 @@ const createGridModel = () => {
 
   model.add(tf.layers.conv2d({ inputShape, ...conv2dArgs }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d(conv2dArgs))
+  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
 
   model.add(tf.layers.flatten())
 
-  model.add(tf.layers.dense({ units: 100, activation: 'relu' }))
-  model.add(tf.layers.dense({ units: 100, activation: 'relu' }))
-  model.add(tf.layers.dense({ units: 4 }))
+  model.add(tf.layers.dense({ units: 256, activation: 'relu' }))
+  model.add(tf.layers.dense({ units: 24 }))
 
   model.summary()
 
@@ -337,6 +367,7 @@ const createDigitsModel = () => {
 const trainGrid = async model => {
 
   const combinedData = trainingData.concat(trainingData2).concat(validationData)
+  tf.util.shuffle(combinedData)
   const { xs, ys } = await loadGridData(combinedData)
 
   model.compile({
@@ -355,9 +386,9 @@ const trainGrid = async model => {
 
   const params = {
     batchSize: 10,
-    epochs: 20,
+    epochs: 50,
     shuffle: true,
-    validationSplit: 0.15,
+    validationSplit: 0.20,
     callbacks: customCallback
   }
 
@@ -588,18 +619,22 @@ const onPredictCapture = async () => {
 }
 
 const onPredictGridTestData = async () => {
-  const promises = testData.map(item => item.url).map(loadImage)
+  const urls = R.pluck('url', testData)
+  const promises = urls.map(loadImage)
   const imageTensors = await Promise.all(promises)
   const input = tf.stack(imageTensors)
   const output = gridModel.predict(input)
-  const boundingBoxPredictions = output.arraySync()
-  imageTensors.map((imageTensor, index) => {
-    const boundingBoxTarget = testData[index].boundingBox
-    const boundingBoxPrediction = boundingBoxPredictions[index]
-    console.log(`boundingBoxTarget [${index}]: ${JSON.stringify(boundingBoxTarget)}`)
-    console.log(`boundingBoxPrediction [${index}]: ${JSON.stringify(boundingBoxPrediction)}`)
-    const body = document.querySelector('body')
-    drawGridImageTensor(body, imageTensor, boundingBoxTarget, boundingBoxPrediction)
+  const cornersTargetsArray = testData.map(item => calculateCorners(item.boundingBox))
+  const cornersPredictionsArray = output.arraySync()
+  imageTensors.map(async (imageTensor, index) => {
+    const cornersTarget = cornersTargetsArray[index]
+    const cornersPrediction = cornersPredictionsArray[index]
+    console.log(`cornersTarget [${index}]: ${JSON.stringify(cornersTarget)}`)
+    console.log(`cornersPrediction [${index}]: ${JSON.stringify(cornersPrediction)}`)
+    const parentElement = document.querySelector('body')
+    const canvas = await drawGridImageTensor(parentElement, imageTensor)
+    drawCorners(canvas, cornersTarget, 'blue')
+    drawCorners(canvas, cornersPrediction, 'red')
   })
 }
 
@@ -740,6 +775,25 @@ const onPredictBlanksAndDigitsTestData = async () => {
   }
 }
 
+const onSaveGridModel = async () => {
+  try {
+    const saveResult = await gridModel.save(`${location.origin}/api/saveModel/grid`)
+    console.dir(saveResult)
+  } catch (error) {
+    console.log(`[onSaveGridModel] ERROR: ${error.message}`)
+  }
+}
+
+const onLoadGridModel = async () => {
+  try {
+    gridModel = await tf.loadLayersModel(`${location.origin}/models/grid/model.json`)
+    trainedGrid = true
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onLoadGridModel] ERROR: ${error.message}`)
+  }
+}
+
 const onSaveBlanksModel = async () => {
   try {
     const saveResult = await blanksModel.save(`${location.origin}/api/saveModel/blanks`)
@@ -784,11 +838,19 @@ const updateButtonStates = () => {
   predictDigitsTestDataBtn.disabled = !trainedDigits
   predictBlanksAndDigitsTestDataBtn.disabled = !(trainedBlanks && trainedDigits)
   predictCaptureBtn.disabled = true
+  saveGridBtn.disabled = !trainedGrid
   saveBlanksBtn.disabled = !trainedBlanks
+  saveDigitsBtn.disabled = !trainedDigits
 }
 
 const trainGridBtn = document.getElementById('trainGridBtn')
 trainGridBtn.addEventListener('click', onTrainGrid)
+
+const saveGridBtn = document.getElementById('saveGridBtn')
+saveGridBtn.addEventListener('click', onSaveGridModel)
+
+const loadGridBtn = document.getElementById('loadGridBtn')
+loadGridBtn.addEventListener('click', onLoadGridModel)
 
 const trainBlanksBtn = document.getElementById('trainBlanksBtn')
 trainBlanksBtn.addEventListener('click', onTrainBlanks)

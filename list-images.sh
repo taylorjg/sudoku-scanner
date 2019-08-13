@@ -1,1 +1,1 @@
-curl sudoku-scanner.herokuapp.com/api/listImages -s | jq
+curl https://sudoku-scanner.herokuapp.com/api/listRawImages -s | jq
