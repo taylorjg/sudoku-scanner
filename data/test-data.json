@@ -98,5 +98,62 @@
             194,
             193
         ]
+    },
+    {
+        "puzzleId": 15,
+        "url": "/normalisedImages/00074.png",
+        "boundingBox": [
+            25,
+            20,
+            139,
+            137
+        ]
+    },
+    {
+        "puzzleId": 15,
+        "url": "/normalisedImages/00075.png",
+        "boundingBox": [
+            53,
+            39,
+            142,
+            139
+        ]
+    },    {
+        "puzzleId": 16,
+        "url": "/normalisedImages/00076.png",
+        "boundingBox": [
+            50,
+            56,
+            117,
+            115
+        ]
+    },    {
+        "puzzleId": 16,
+        "url": "/normalisedImages/00077.png",
+        "boundingBox": [
+            39,
+            25,
+            161,
+            158
+        ]
+    },    {
+        "puzzleId": 17,
+        "url": "/normalisedImages/00078.png",
+        "boundingBox": [
+            46,
+            77,
+            125,
+            125
+        ]
+    },
+    {
+        "puzzleId": 17,
+        "url": "/normalisedImages/00079.png",
+        "boundingBox": [
+            25,
+            48,
+            149,
+            147
+        ]
     }
 ]

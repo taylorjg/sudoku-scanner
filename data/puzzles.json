@@ -208,5 +208,50 @@
             " 13     2",
             "      67 "
         ]
+    },
+    {
+        "id": 15,
+        "description": "The Guardian, Saturday 10 August 2019, Easy",
+        "initialValues": [
+            "  5   2  ",
+            "8       1",
+            " 674 138 ",
+            " 9  1  7 ",
+            "38  9  65",
+            " 7  3  2 ",
+            " 289 653 ",
+            "6       8",
+            "  4   6  "
+        ]
+    },
+    {
+        "id": 16,
+        "description": "The Guardian, Saturday 10 August 2019, Medium",
+        "initialValues": [
+            "   8    1",
+            "259  1   ",
+            "  6 7    ",
+            "       9 ",
+            " 32 9 7  ",
+            " 74     5",
+            "   72 51 ",
+            "1  54  3 ",
+            " 9     6 "
+        ]
+    },
+    {
+        "id": 17,
+        "description": "The Guardian, Saturday 10 August 2019, Expert",
+        "initialValues": [
+            "    8    ",
+            "2 1     6",
+            "5    9 7 ",
+            "  351  4 ",
+            "    9 1  ",
+            "  267  8 ",
+            "8    4 3 ",
+            "7 9     8",
+            "    2    "
+        ]
     }
 ]
