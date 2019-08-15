@@ -15,10 +15,11 @@ My plan is to use [TensorFlow.js](https://www.tensorflow.org/js) to:
 * Click 'Load' under 'Training - Blanks'
 * Click 'Load' under 'Training - Digits'
 * Click 'Predict Test Data' under 'Predictions - Blanks and Digits'
-* Scroll down to see the results of attempting to recognise the 10 test images
+* The results of attempting to recognise the test images are displayed
 * Currently, I need to provide the bounding box (via the [test data](data/test-data.json))
 * It does the following:
     * Uses the provided bounding box to calculate the positions of the grid squares
+    * Crops the grid squares from the image of the grid
     * Uses the 'blanks' model to distinguish between blanks and digits
     * Uses the 'digits' model to recognise the digits
 * A big red cross means that it failed to convincingly distinguish between blanks/digits
