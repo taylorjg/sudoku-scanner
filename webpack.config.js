@@ -8,7 +8,7 @@ const { version } = require('./package.json')
 const distFolder = path.join(__dirname, 'dist')
 
 module.exports = {
-  mode: 'development',
+  mode: process.env.NODE_ENV || 'development',
   entry: './src/index.js',
   output: {
     path: distFolder,
