@@ -2,7 +2,6 @@ import * as tf from '@tensorflow/tfjs'
 import * as R from 'ramda'
 import * as C from './constants'
 import * as CALC from './calculations'
-import * as I from './image'
 import * as DC from './drawCanvas'
 import puzzles from '../data/puzzles.json'
 
@@ -37,7 +36,7 @@ export const loadGridData = async (data, elementId) => {
   const parentElement = document.getElementById(elementId)
   deleteChildren(parentElement)
   imageTensors.forEach(async (imageTensor, index) => {
-    const canvas = await I.drawGridImageTensor(parentElement, imageTensor)
+    const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
     const corners = cornersArray[index]
     DC.drawCorners(canvas, corners, 'blue')
     // const boxCorners = CALC.calculateBoxCorners(data[index].boundingBox)
@@ -102,7 +101,7 @@ export const cropGridSquaresFromGrid = (item, gridImageTensor) => {
 }
 
 // tf.tidy ?
-export const loadDataGrouped = async (data, cropFunction) => {
+export const loadCroppedDataGrouped = async (data, cropFunction) => {
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
   const gridImageTensorsArray = await Promise.all(promises)
@@ -112,8 +111,8 @@ export const loadDataGrouped = async (data, cropFunction) => {
   })
 }
 
-export const loadGridSquaresGrouped = async data => loadDataGrouped(data, cropGridSquaresFromGrid)
-export const loadDigitsGrouped = async data => loadDataGrouped(data, cropDigitsFromGrid)
+export const loadGridSquaresGrouped = async data => loadCroppedDataGrouped(data, cropGridSquaresFromGrid)
+export const loadDigitsGrouped = async data => loadCroppedDataGrouped(data, cropDigitsFromGrid)
 
 // tf.tidy ?
 const flattenGroupedData = async (data, loader) => {

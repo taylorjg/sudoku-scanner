@@ -2,14 +2,6 @@ import * as tf from '@tensorflow/tfjs'
 import * as R from 'ramda'
 import * as C from './constants'
 
-export const drawGridImageTensor = async (parentElement, imageTensor) => {
-  const canvas = document.createElement('canvas')
-  canvas.setAttribute('class', 'grid-image')
-  await tf.browser.toPixels(imageTensor, canvas)
-  parentElement.appendChild(canvas)
-  return canvas
-}
-
 export const convertToGreyscale = imageData => {
   const width = imageData.width
   const height = imageData.height

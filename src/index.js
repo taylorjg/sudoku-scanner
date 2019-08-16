@@ -5,10 +5,10 @@ import axios from 'axios'
 
 import * as C from './constants'
 import * as D from './data'
+import * as I from './image'
 import * as CALC from './calculations'
 import * as DC from './drawCanvas'
-import * as I from './image'
-import { createSvgElement, drawInitialGrid } from './svg'
+import * as DS from './drawSvg'
 
 import trainingData from '../data/training-data.json'
 import trainingData2 from '../data/training-data-2.json'
@@ -230,7 +230,7 @@ const trainDigits = async model => {
 }
 
 const createVideoGuide = d =>
-  createSvgElement('path', { d, class: 'video-guide' })
+  DS.createSvgElement('path', { d, class: 'video-guide' })
 
 const drawGuides = () => {
   const svg = document.getElementById('video-guides')
@@ -385,7 +385,7 @@ const onPredictGrid = async () => {
     console.log(`cornersTarget [${index}]: ${JSON.stringify(cornersTarget)}`)
     console.log(`cornersPrediction [${index}]: ${JSON.stringify(cornersPrediction)}`)
     const parentElement = document.querySelector('body')
-    const canvas = await I.drawGridImageTensor(parentElement, imageTensor)
+    const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
     DC.drawCorners(canvas, cornersTarget, 'blue')
     DC.drawCorners(canvas, cornersPrediction, 'red')
   })
@@ -424,7 +424,7 @@ const onPredictBlanks = async () => {
     const labelsArray = ys.arraySync()
     const outputs = models.blanks.model.predict(xs)
     const predictionsArray = outputs.arraySync()
-    const canvas = await I.drawGridImageTensor(parentElement, gridImageTensor)
+    const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
     const ctx = canvas.getContext('2d')
     for (const { index, gridSquare } of gridSquaresWithDetails) {
       const label = labelsArray[index]
@@ -462,7 +462,7 @@ const onPredictDigits = async () => {
     const labelsArray = ys.argMax(1).arraySync()
     const outputs = models.digits.model.predict(xs)
     const predictionsArray = outputs.argMax(1).arraySync()
-    const canvas = await I.drawGridImageTensor(parentElement, gridImageTensor)
+    const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
     const ctx = canvas.getContext('2d')
     for (const { index, gridSquare } of gridSquaresWithDetails) {
       const correct = predictionsArray[index] === labelsArray[index]
@@ -502,7 +502,7 @@ const onPredictBlanksDigits = async () => {
     const { xs, gridImageTensor, gridSquaresWithDetails } = datum
 
     parentElement.appendChild(document.createElement('br'))
-    const canvas = await I.drawGridImageTensor(parentElement, gridImageTensor)
+    const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
     const ctx = canvas.getContext('2d')
 
     const blanksPredictionsArray = models.blanks.model.predict(xs).arraySync()
@@ -534,9 +534,9 @@ const onPredictBlanksDigits = async () => {
     })
 
     const rows = toRows(indexedDigitPredictions)
-    const svgElement = createSvgElement('svg', { 'class': 'sudoku-grid' })
+    const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
     parentElement.appendChild(svgElement)
-    drawInitialGrid(svgElement, rows)
+    DS.drawInitialGrid(svgElement, rows)
   }
 }
 
@@ -556,14 +556,14 @@ const onPredictCapture = async () => {
   // - normalise imageData
   // - then, essentially do onPredictGridBlanksDigits but for a single imageTensor
 
-  // const imageTensor = normaliseGridImage(imageData)
+  // const imageTensor = I.normaliseGridImage(imageData)
   // const input = tf.stack([imageTensor])
   // const output = model.predict(input)
   // const boundingBoxPrediction = output.arraySync()[0]
   // console.log(`boundingBoxPrediction: ${JSON.stringify(boundingBoxPrediction)}`)
   // drawImageTensor(imageTensor, undefined, boundingBoxPrediction)
   // const body = document.querySelector('body')
-  // drawGridImageTensor(body, imageTensor)
+  // DC.drawGridImageTensor(body, imageTensor)
 }
 
 const onSaveModel = name => async () => {

@@ -1,3 +1,4 @@
+import * as tf from '@tensorflow/tfjs'
 import * as R from 'ramda'
 import * as CALC from './calculations'
 
@@ -45,4 +46,12 @@ export const drawBoundingBox = (canvas, boundingBox, colour) => {
   ctx.strokeStyle = colour
   ctx.lineWidth = 1
   ctx.strokeRect(...boundingBox)
+}
+
+export const drawGridImageTensor = async (parentElement, imageTensor) => {
+  const canvas = document.createElement('canvas')
+  canvas.setAttribute('class', 'grid-image')
+  await tf.browser.toPixels(imageTensor, canvas)
+  parentElement.appendChild(canvas)
+  return canvas
 }
