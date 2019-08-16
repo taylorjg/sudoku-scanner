@@ -53,16 +53,27 @@ function* calculateGridSquares(boundingBox) {
   }
 }
 
-const calculateCorners = boundingBox => {
+const calculateBoxes = boundingBox => {
   const [bbx, bby, bbw, bbh] = boundingBox
-  const DELTA_X = 20
-  const DELTA_Y = 20
-  // const DELTA_X = bbw / 3
-  // const DELTA_Y = bbh / 3
-  const left = ([x, y]) => [x - DELTA_X, y]
-  const right = ([x, y]) => [x + DELTA_X, y]
-  const up = ([x, y]) => [x, y - DELTA_Y]
-  const down = ([x, y]) => [x, y + DELTA_Y]
+  const w = bbw / 3
+  const h = bbh / 3
+  const rows = R.range(0, 3)
+  const cols = R.range(0, 3)
+  return R.chain(row =>
+    R.map(col => {
+      const x = bbx + col * w
+      const y = bby + row * h
+      return [x, y, w, h]
+    }, cols),
+    rows)
+}
+
+const calculateCorners = (boundingBox, delta = 20) => {
+  const [bbx, bby, bbw, bbh] = boundingBox
+  const left = ([x, y]) => [x - delta, y]
+  const right = ([x, y]) => [x + delta, y]
+  const up = ([x, y]) => [x, y - delta]
+  const down = ([x, y]) => [x, y + delta]
   const tl = [bbx, bby]
   const tr = [bbx + bbw, bby]
   const br = [bbx + bbw, bby + bbh]
@@ -73,6 +84,11 @@ const calculateCorners = boundingBox => {
     up(br), br, left(br),
     right(bl), bl, up(bl)
   ])
+}
+
+const calculateBoxCorners = boundingBox => {
+  const boxes = calculateBoxes(boundingBox)
+  return R.chain(box => calculateCorners(box, 10), boxes)
 }
 
 const drawBigRedCross = (ctx, boundingBox) => {
@@ -174,7 +190,7 @@ const deleteChildren = element => {
 }
 
 const loadGridData = async (data, elementId) => {
-  const cornersArray = data.map(item => calculateCorners(item.boundingBox))
+  const cornersArray = data.map(item => calculateBoxCorners(item.boundingBox))
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
   const imageTensors = await Promise.all(promises)
@@ -184,6 +200,8 @@ const loadGridData = async (data, elementId) => {
     const canvas = await drawGridImageTensor(parentElement, imageTensor)
     const corners = cornersArray[index]
     drawCorners(canvas, corners, 'blue')
+    // const boxCorners = calculateBoxCorners(data[index].boundingBox)
+    // drawCorners(canvas, boxCorners, 'blue')
   })
   const xs = tf.stack(imageTensors)
   const ys = tf.tensor2d(cornersArray, undefined, 'int32')
@@ -191,73 +209,59 @@ const loadGridData = async (data, elementId) => {
 }
 
 // tf.tidy ?
-// Used by loadDigitsGrouped
-// TODO: cropDigitsFromGrid and cropGridSquaresFromGrid are very similar.
-//       I think we can combine these into a single function.
-//       Use a flag to control whether blank grid squares are included in the results.
-const cropDigitsFromGrid = (item, gridImageTensor) => {
+const cropGridSquaresFromGridCommon = (item, gridImageTensor, options = {}) => {
   const { puzzleId, boundingBox } = item
-  const gridSquares = Array.from(calculateGridSquares(boundingBox))
   const puzzle = puzzles.find(p => p.id === puzzleId)
-  const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))
-
-  const digitsAndGridSquares = flattenedInitialValues
-    .map((ch, index) => ({
-      digit: Number(ch),
-      index,
-      gridSquare: gridSquares[index],
-      isBlank: ch === ' '
-    }))
-    .filter(({ isBlank }) => !isBlank)
-
-  const image = tf.stack([gridImageTensor.div(255)])
-  const normaliseX = x => x / (GRID_IMAGE_WIDTH - 1)
-  const normaliseY = y => y / (GRID_IMAGE_HEIGHT - 1)
-  const boxes = digitsAndGridSquares.map(({ gridSquare: [x, y, w, h] }) =>
-    [normaliseY(y), normaliseX(x), normaliseY(y + h), normaliseX(x + w)]
-  )
-  const boxInd = Array(boxes.length).fill(0)
-  const cropSize = [DIGIT_IMAGE_HEIGHT, DIGIT_IMAGE_WIDTH]
-  const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
-
-  const oneBasedDigits = R.pluck('digit', digitsAndGridSquares)
-  const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
-  const ys = tf.oneHot(zeroBasedDigits, 9)
-  return { xs, ys, item, puzzle, gridImageTensor, digitsAndGridSquares }
-}
-
-// tf.tidy ?
-// Used by loadGridSquaresGrouped
-const cropGridSquaresFromGrid = (item, gridImageTensor) => {
-  const { puzzleId, boundingBox } = item
   const gridSquares = Array.from(calculateGridSquares(boundingBox))
-  const puzzle = puzzles.find(p => p.id === puzzleId)
   const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))
-
+  const blanksFilter = options.removeBlanks ? ({ isBlank }) => !isBlank : R.T
+  const digitsFilter = options.removeDigits ? ({ isBlank }) => isBlank : R.T
   const gridSquaresWithDetails = flattenedInitialValues
     .map((ch, index) => ({
+      isBlank: ch === ' ',
       digit: Number(ch),
-      index,
       gridSquare: gridSquares[index],
-      isBlank: ch === ' '
+      index
     }))
-
+    .filter(blanksFilter)
+    .filter(digitsFilter)
   const image = tf.stack([gridImageTensor.div(255)])
   const normaliseX = x => x / (GRID_IMAGE_WIDTH - 1)
   const normaliseY = y => y / (GRID_IMAGE_HEIGHT - 1)
   const boxes = gridSquaresWithDetails.map(({ gridSquare: [x, y, w, h] }) =>
-    [normaliseY(y), normaliseX(x), normaliseY(y + h), normaliseX(x + w)]
+    [
+      normaliseY(y),
+      normaliseX(x),
+      normaliseY(y + h),
+      normaliseX(x + w)
+    ]
   )
   const boxInd = Array(boxes.length).fill(0)
   const cropSize = [DIGIT_IMAGE_HEIGHT, DIGIT_IMAGE_WIDTH]
   const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
+  return { xs, puzzle, gridSquaresWithDetails }
+}
 
+// tf.tidy ?
+// ys are one-hots
+const cropDigitsFromGrid = (item, gridImageTensor) => {
+  const options = { removeBlanks: true }
+  const { xs, puzzle, gridSquaresWithDetails } = cropGridSquaresFromGridCommon(item, gridImageTensor, options)
+  const oneBasedDigits = R.pluck('digit', gridSquaresWithDetails)
+  const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
+  const ys = tf.oneHot(zeroBasedDigits, 9)
+  return { xs, ys, item, puzzle, gridImageTensor, gridSquaresWithDetails }
+}
+
+// tf.tidy ?
+// ys are 1 (blank) or 0 (digit)
+const cropGridSquaresFromGrid = (item, gridImageTensor) => {
+  const { xs, puzzle, gridSquaresWithDetails } = cropGridSquaresFromGridCommon(item, gridImageTensor)
   const ys = tf.tensor1d(gridSquaresWithDetails.map(({ isBlank }) => isBlank ? 1 : 0))
   return { xs, ys, item, puzzle, gridImageTensor, gridSquaresWithDetails }
 }
 
 // tf.tidy ?
-// Used by onPredictBlanks and onPredictBlanksDigits
 const loadGridSquaresGrouped = async data => {
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
@@ -269,7 +273,6 @@ const loadGridSquaresGrouped = async data => {
 }
 
 // tf.tidy ?
-// Used by onPredictDigits
 const loadDigitsGrouped = async data => {
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
@@ -323,8 +326,8 @@ const createGridModel = () => {
 
   model.add(tf.layers.flatten())
 
-  model.add(tf.layers.dense({ units: 256, activation: 'relu' }))
-  model.add(tf.layers.dense({ units: 24 }))
+  model.add(tf.layers.dense({ units: 216 * 4, activation: 'relu' }))
+  model.add(tf.layers.dense({ units: 216 }))
 
   model.summary()
 
@@ -415,7 +418,7 @@ const trainGrid = async model => {
 
   const params = {
     batchSize: 10,
-    epochs: 50,
+    epochs: 20,
     shuffle: true,
     validationSplit: 0.20,
     callbacks: customCallback
@@ -638,7 +641,7 @@ const onPredictGrid = async () => {
   const imageTensors = await Promise.all(promises)
   const input = tf.stack(imageTensors)
   const output = models.grid.model.predict(input)
-  const cornersTargetsArray = testData.map(item => calculateCorners(item.boundingBox))
+  const cornersTargetsArray = testData.map(item => calculateBoxCorners(item.boundingBox))
   const cornersPredictionsArray = output.arraySync()
   imageTensors.map(async (imageTensor, index) => {
     const cornersTarget = cornersTargetsArray[index]
@@ -719,13 +722,13 @@ const onPredictDigits = async () => {
 
   const groups = await loadDigitsGrouped(testData)
   for (const group of groups) {
-    const { xs, ys, gridImageTensor, digitsAndGridSquares } = group
+    const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
     const labelsArray = ys.argMax(1).arraySync()
     const outputs = models.digits.model.predict(xs)
     const predictionsArray = outputs.argMax(1).arraySync()
     const canvas = await drawGridImageTensor(parentElement, gridImageTensor)
     const ctx = canvas.getContext('2d')
-    for (const { index, gridSquare } of digitsAndGridSquares) {
+    for (const { index, gridSquare } of gridSquaresWithDetails) {
       const correct = predictionsArray[index] === labelsArray[index]
       ctx.strokeStyle = correct ? 'green' : 'red'
       ctx.strokeRect(...gridSquare)
