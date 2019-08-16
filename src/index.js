@@ -31,6 +31,15 @@ const models = {
 }
 
 let imageData = undefined
+let visor = undefined
+
+const getVisor = () => {
+  if (!visor) {
+    visor = tfvis.visor()
+  }
+  visor.open()
+  return visor
+}
 
 const deleteChildren = element => {
   while (element.firstChild) {
@@ -150,7 +159,7 @@ const trainGrid = async model => {
     loss: 'meanAbsoluteError'
   })
 
-  const trainingSurface = tfvis.visor().surface({ tab: 'Grid', name: 'Model Training' })
+  const trainingSurface = getVisor().surface({ tab: 'Grid', name: 'Model Training' })
   const customCallback = tfvis.show.fitCallbacks(
     trainingSurface,
     ['loss', 'val_loss'],
@@ -181,7 +190,7 @@ const trainBlanks = async model => {
     metrics: ['accuracy']
   })
 
-  const trainingSurface = tfvis.visor().surface({ tab: 'Blanks', name: 'Model Training' })
+  const trainingSurface = getVisor().surface({ tab: 'Blanks', name: 'Model Training' })
   const customCallback = tfvis.show.fitCallbacks(
     trainingSurface,
     ['loss', 'val_loss', 'acc', 'val_acc'],
@@ -211,7 +220,7 @@ const trainDigits = async model => {
     metrics: ['accuracy']
   })
 
-  const trainingSurface = tfvis.visor().surface({ tab: 'Digits', name: 'Model Training' })
+  const trainingSurface = getVisor().surface({ tab: 'Digits', name: 'Model Training' })
   const customCallback = tfvis.show.fitCallbacks(
     trainingSurface,
     ['loss', 'val_loss', 'acc', 'val_acc'],
@@ -443,9 +452,11 @@ const onPredictBlanks = async () => {
   const overallPredictionsArray = R.unnest(predictionsArrays)
   const overallPredictions = tf.tensor1d(overallPredictionsArray.map(normaliseBlankPrediction))
   const classAccuracy = await tfvis.metrics.perClassAccuracy(overallLabels, overallPredictions)
-  const container = { name: 'Accuracy', tab: 'Evaluation' }
+  const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
   const classNames = ['Blank', 'Digit']
-  tfvis.show.perClassAccuracy(container, classAccuracy, classNames)
+  tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
+
+  updateButtonStates()
 }
 
 const onPredictDigits = async () => {
@@ -476,9 +487,11 @@ const onPredictDigits = async () => {
   const overallLabels = tf.concat(yss).argMax(1)
   const overallPredictions = tf.concat(outputsArray).argMax(1)
   const classAccuracy = await tfvis.metrics.perClassAccuracy(overallLabels, overallPredictions)
-  const container = { name: 'Accuracy', tab: 'Evaluation' }
+  const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
   const classNames = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-  tfvis.show.perClassAccuracy(container, classAccuracy, classNames)
+  tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
+
+  updateButtonStates()
 }
 
 const toRows = indexedDigitPredictions =>
@@ -601,6 +614,8 @@ const updateButtonStates = () => {
   predictBlanksDigitsBtn.disabled = !(models.blanks.trained && models.digits.trained)
   predictGridBlanksDigitsBtn.disabled = true // !allTrained
   predictCaptureBtn.disabled = true // !(allTrained && imageData)
+
+  showVisorBtn.disabled = !visor
 }
 
 // Grid
@@ -670,6 +685,9 @@ clearGridBlanksDigitsPredictionsBtn.addEventListener('click', () => deleteChildr
 
 const predictCaptureBtn = document.getElementById('predictCaptureBtn')
 predictCaptureBtn.addEventListener('click', onPredictCapture)
+
+const showVisorBtn = document.getElementById('showVisorBtn')
+showVisorBtn.addEventListener('click', () => visor && visor.open())
 
 updateButtonStates()
 
