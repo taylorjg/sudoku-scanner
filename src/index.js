@@ -266,12 +266,12 @@ const initialiseCamera = async () => {
   capturedImageElement.width = videoElementRect.width
   capturedImageElement.height = videoElementRect.height
   const capturedImageElementContext = capturedImageElement.getContext('2d')
-  const startBtn = document.getElementById('startBtn')
-  const stopBtn = document.getElementById('stopBtn')
-  const captureBtn = document.getElementById('captureBtn')
-  const saveBtn = document.getElementById('saveBtn')
-  const clearBtn = document.getElementById('clearBtn')
-  const messageArea = document.getElementById('messageArea')
+  const startBtn = document.getElementById('start-btn')
+  const stopBtn = document.getElementById('stop-btn')
+  const captureBtn = document.getElementById('capture-btn')
+  const saveBtn = document.getElementById('save-btn')
+  const clearBtn = document.getElementById('clear-btn')
+  const messageArea = document.getElementById('message-area')
 
   const updateButtonState = () => {
     const playing = !!videoElement.srcObject
@@ -632,6 +632,24 @@ const updateButtonStates = () => {
   predictGridBlanksDigitsBtn.disabled = !allTrained
   predictCaptureBtn.disabled = !(allTrained && imageData)
 
+  const clearGridBtn = getPredictionElement('grid', '.clear-btn')
+  const clearBlanksBtn = getPredictionElement('blanks', '.clear-btn')
+  const clearDigitsBtn = getPredictionElement('digits', '.clear-btn')
+  const clearBlanksDigitsBtn = getPredictionElement('blanks-digits', '.clear-btn')
+  const clearGridBlanksDigitsBtn = getPredictionElement('grid-blanks-digits', '.clear-btn')
+
+  const gridResults = getPredictionElement('grid', '.results')
+  const blanksResults = getPredictionElement('blanks', '.results')
+  const digitsResults = getPredictionElement('digits', '.results')
+  const blanksDigitsResults = getPredictionElement('blanks-digits', '.results')
+  const gridBlanksDigitsResults = getPredictionElement('grid-blanks-digits', '.results')
+
+  clearGridBtn.disabled = !gridResults.hasChildNodes()
+  clearBlanksBtn.disabled = !blanksResults.hasChildNodes()
+  clearDigitsBtn.disabled = !digitsResults.hasChildNodes()
+  clearBlanksDigitsBtn.disabled = !blanksDigitsResults.hasChildNodes()
+  clearGridBlanksDigitsBtn.disabled = !gridBlanksDigitsResults.hasChildNodes()
+
   showVisorBtn.disabled = !visor
 }
 
@@ -645,10 +663,14 @@ SC.addPredictionSection('digits', onPredictDigits)
 SC.addPredictionSection('blanks-digits', onPredictBlanksDigits)
 SC.addPredictionSection('grid-blanks-digits', onPredictGridBlanksDigits)
 
-const predictCaptureBtn = document.getElementById('predictCaptureBtn')
+document.querySelectorAll('.clear-btn').forEach(clearBtn =>
+  clearBtn.addEventListener('click', () =>
+    visor && visor.close()))
+
+const predictCaptureBtn = document.getElementById('predict-capture-btn')
 predictCaptureBtn.addEventListener('click', onPredictCapture)
 
-const showVisorBtn = document.getElementById('showVisorBtn')
+const showVisorBtn = document.getElementById('show-visor-btn')
 showVisorBtn.addEventListener('click', () => visor && visor.open())
 
 updateButtonStates()
