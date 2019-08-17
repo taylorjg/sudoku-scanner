@@ -14,7 +14,7 @@ My plan is to use [TensorFlow.js](https://www.tensorflow.org/js) to:
 * Open https://sudoku-scanner.herokuapp.com/
 * Click 'Load' under 'Training - Blanks'
 * Click 'Load' under 'Training - Digits'
-* Click 'Predict Test Data' under 'Predictions - Blanks and Digits'
+* Click 'Predict' under 'Predictions - Blanks/Digits'
 * The results of attempting to recognise the test images are displayed
 * Currently, I need to provide the bounding box (via the [test data](data/test-data.json))
 * It does the following:

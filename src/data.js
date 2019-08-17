@@ -3,13 +3,8 @@ import * as R from 'ramda'
 import * as C from './constants'
 import * as CALC from './calculations'
 import * as DC from './drawCanvas'
+import * as U from './utils'
 import puzzles from '../data/puzzles.json'
-
-const deleteChildren = element => {
-  while (element.firstChild) {
-    element.removeChild(element.firstChild)
-  }
-}
 
 // key: url, value: tensor3d
 const GRID_IMAGE_CACHE = new Map()
@@ -28,13 +23,12 @@ export const loadImage = async url => {
   return imageTensor
 }
 
-export const loadGridData = async (data, elementId) => {
+export const loadGridData = async (data, parentElement) => {
+  U.deleteChildren(parentElement)
   const cornersArray = data.map(item => CALC.calculateBoxCorners(item.boundingBox))
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
   const imageTensors = await Promise.all(promises)
-  const parentElement = document.getElementById(elementId)
-  deleteChildren(parentElement)
   imageTensors.forEach(async (imageTensor, index) => {
     const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
     const corners = cornersArray[index]

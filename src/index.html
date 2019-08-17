@@ -6,6 +6,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css" />
   <link rel="stylesheet" href="styles.css" />
+
+  <template id="training-section-template">
+    <div class="row">
+      <h1>Training - <span class="training-name"></span></h1>
+      <button class="train-btn btn btn-primary btn-xs">Train</button>
+      <button class="save-btn btn btn-default btn-xs">Save</button>
+      <button class="load-btn btn btn-default btn-xs">Load</button>
+      <div class="training-data"></div>
+    </div>
+    <div class="row">
+      <hr />
+    </div>
+  </template>
+
+  <template id="prediction-section-template">
+    <div class="row">
+      <h1>Predictions - <span class="prediction-name"></span></h1>
+      <button class="predict-btn btn btn-primary btn-xs">Predict</button>
+      <button class="clear-btn btn btn-danger btn-xs">Clear</button>
+      <div class="results"></div>
+    </div>
+    <div class="row">
+      <hr />
+    </div>
+  </template>
 </head>
 
 <body>
@@ -24,82 +49,8 @@
       </div>
     </div>
 
-    <div class="row">
-      <h1>Training - Grid</h1>
-      <button id="trainGridBtn" class="btn btn-primary btn-xs">Train</button>
-      <button id="saveGridBtn" class="btn btn-default btn-xs">Save</button>
-      <button id="loadGridBtn" class="btn btn-default btn-xs">Load</button>
-      <div id="gridTrainingData"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-    <div class="row">
-      <h1>Training - Blanks</h1>
-      <button id="trainBlanksBtn" class="btn btn-primary btn-xs">Train</button>
-      <button id="saveBlanksBtn" class="btn btn-default btn-xs">Save</button>
-      <button id="loadBlanksBtn" class="btn btn-default btn-xs">Load</button>
-      <div id="blanksTrainingData"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-    <div class="row">
-      <h1>Training - Digits</h1>
-      <button id="trainDigitsBtn" class="btn btn-primary btn-xs">Train</button>
-      <button id="saveDigitsBtn" class="btn btn-default btn-xs">Save</button>
-      <button id="loadDigitsBtn" class="btn btn-default btn-xs">Load</button>
-      <div id="digitsTrainingData"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-
-    <div class="row">
-      <h1>Predictions - Grid</h1>
-      <button id="predictGridBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
-      <button id="clearGridPredictionsBtn" class="btn btn-danger btn-xs">Clear</button>
-      <div id="gridPredictions"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-    <div class="row">
-      <h1>Predictions - Blanks</h1>
-      <button id="predictBlanksBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
-      <button id="clearBlanksPredictionsBtn" class="btn btn-danger btn-xs">Clear</button>
-      <div id="blanksPredictions"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-    <div class="row">
-      <h1>Predictions - Digits</h1>
-      <button id="predictDigitsBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
-      <button id="clearDigitsPredictionsBtn" class="btn btn-danger btn-xs">Clear</button>
-      <div id="digitsPredictions"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-    <div class="row">
-      <h1>Predictions - Blanks and Digits</h1>
-      <button id="predictBlanksDigitsBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
-      <button id="clearBlanksDigitsPredictionsBtn" class="btn btn-danger btn-xs">Clear</button>
-      <div id="blanksDigitsPredictions"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
-    <div class="row">
-      <h1>Predictions - Grid And Blanks and Digits</h1>
-      <button id="predictGridBlanksDigitsBtn" class="btn btn-primary btn-xs">Predict Test Data</button>
-      <button id="clearGridBlanksDigitsPredictionsBtn" class="btn btn-danger btn-xs">Clear</button>
-      <div id="gridBlanksDigitsPredictions"></div>
-    </div>
-    <div class="row">
-      <hr />
-    </div>
+    <div id="training-sections"></div>
+    <div id="prediction-sections"></div>
 
     <div class="row">
       <h1>Capturing</h1>

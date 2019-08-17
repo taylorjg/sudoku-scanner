@@ -9,6 +9,8 @@ import * as I from './image'
 import * as CALC from './calculations'
 import * as DC from './drawCanvas'
 import * as DS from './drawSvg'
+import * as SC from './simpleComponents'
+import * as U from './utils'
 
 import trainingData from '../data/training-data.json'
 import trainingData2 from '../data/training-data-2.json'
@@ -41,11 +43,11 @@ const getVisor = () => {
   return visor
 }
 
-const deleteChildren = element => {
-  while (element.firstChild) {
-    element.removeChild(element.firstChild)
-  }
-}
+const getTrainingElement = (name, selector) =>
+  document.querySelector(`#training-section-${name} ${selector}`)
+
+const getPredictionElement = (name, selector) =>
+  document.querySelector(`#prediction-section-${name} ${selector}`)
 
 const createGridModel = () => {
 
@@ -151,7 +153,8 @@ const trainGrid = async model => {
 
   const combinedData = trainingData.concat(trainingData2).concat(validationData)
   tf.util.shuffle(combinedData)
-  const { xs, ys } = await D.loadGridData(combinedData, 'gridTrainingData')
+  const parentElement = getTrainingElement('grid', '.training-data')
+  const { xs, ys } = await D.loadGridData(combinedData, parentElement)
 
   model.compile({
     optimizer: 'rmsprop',
@@ -345,6 +348,7 @@ const initialiseCamera = async () => {
 }
 
 const onTrainGrid = async () => {
+  const trainGridBtn = getTrainingElement('grid', '.train-btn')
   try {
     trainGridBtn.disabled = true
     models.grid.model = createGridModel()
@@ -357,6 +361,7 @@ const onTrainGrid = async () => {
 }
 
 const onTrainBlanks = async () => {
+  const trainBlanksBtn = getTrainingElement('blanks', '.train-btn')
   try {
     trainBlanksBtn.disabled = true
     models.blanks.model = createBlanksModel()
@@ -369,6 +374,7 @@ const onTrainBlanks = async () => {
 }
 
 const onTrainDigits = async () => {
+  const trainDigitsBtn = getTrainingElement('digits', '.train-btn')
   try {
     trainDigitsBtn.disabled = true
     models.digits.model = createDigitsModel()
@@ -388,12 +394,13 @@ const onPredictGrid = async () => {
   const output = models.grid.model.predict(input)
   const cornersTargetsArray = testData.map(item => CALC.calculateBoxCorners(item.boundingBox))
   const cornersPredictionsArray = output.arraySync()
+  const parentElement = getPredictionElement('grid', '.results')
+  U.deleteChildren(parentElement)
   imageTensors.map(async (imageTensor, index) => {
     const cornersTarget = cornersTargetsArray[index]
     const cornersPrediction = cornersPredictionsArray[index]
     console.log(`cornersTarget [${index}]: ${JSON.stringify(cornersTarget)}`)
     console.log(`cornersPrediction [${index}]: ${JSON.stringify(cornersPrediction)}`)
-    const parentElement = document.querySelector('body')
     const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
     DC.drawCorners(canvas, cornersTarget, 'blue')
     DC.drawCorners(canvas, cornersPrediction, 'red')
@@ -421,8 +428,8 @@ const normaliseBlankPrediction = prediction =>
 
 const onPredictBlanks = async () => {
 
-  const parentElement = document.getElementById('blanksPredictions')
-  deleteChildren(parentElement)
+  const parentElement = getPredictionElement('blanks', '.results')
+  U.deleteChildren(parentElement)
 
   const yss = []
   const predictionsArrays = []
@@ -461,8 +468,8 @@ const onPredictBlanks = async () => {
 
 const onPredictDigits = async () => {
 
-  const parentElement = document.getElementById('digitsPredictions')
-  deleteChildren(parentElement)
+  const parentElement = getPredictionElement('digits', '.results')
+  U.deleteChildren(parentElement)
 
   const yss = []
   const outputsArray = []
@@ -508,8 +515,8 @@ const toRows = indexedDigitPredictions =>
 // Draw resultant images highlighting correct/incorrect predictions
 const onPredictBlanksDigits = async () => {
   const data = await D.loadGridSquaresGrouped(testData)
-  const parentElement = document.getElementById('blanksDigitsPredictions')
-  deleteChildren(parentElement)
+  const parentElement = getPredictionElement('blanks-digits', '.results')
+  U.deleteChildren(parentElement)
   for (const datum of data) {
 
     const { xs, gridImageTensor, gridSquaresWithDetails } = datum
@@ -602,86 +609,41 @@ const onLoadModel = name => async () => {
 
 const updateButtonStates = () => {
 
+  const saveGridBtn = getTrainingElement('grid', '.save-btn')
+  const saveBlanksBtn = getTrainingElement('blanks', '.save-btn')
+  const saveDigitsBtn = getTrainingElement('digits', '.save-btn')
+
   saveGridBtn.disabled = !models.grid.trained
   saveBlanksBtn.disabled = !models.blanks.trained
   saveDigitsBtn.disabled = !models.digits.trained
 
-  // const allTrained = models.grid.trained && models.blanks.trained && models.digits.trained
+  const allTrained = false && models.grid.trained && models.blanks.trained && models.digits.trained
+
+  const predictGridBtn = getPredictionElement('grid', '.predict-btn')
+  const predictBlanksBtn = getPredictionElement('blanks', '.predict-btn')
+  const predictDigitsBtn = getPredictionElement('digits', '.predict-btn')
+  const predictBlanksDigitsBtn = getPredictionElement('blanks-digits', '.predict-btn')
+  const predictGridBlanksDigitsBtn = getPredictionElement('grid-blanks-digits', '.predict-btn')
 
   predictGridBtn.disabled = !models.grid.trained
   predictBlanksBtn.disabled = !models.blanks.trained
   predictDigitsBtn.disabled = !models.digits.trained
   predictBlanksDigitsBtn.disabled = !(models.blanks.trained && models.digits.trained)
-  predictGridBlanksDigitsBtn.disabled = true // !allTrained
-  predictCaptureBtn.disabled = true // !(allTrained && imageData)
+  predictGridBlanksDigitsBtn.disabled = !allTrained
+  predictCaptureBtn.disabled = !(allTrained && imageData)
 
   showVisorBtn.disabled = !visor
 }
 
-// Grid
+SC.addTrainingSection('grid', onTrainGrid, onSaveModel, onLoadModel)
+SC.addTrainingSection('blanks', onTrainBlanks, onSaveModel, onLoadModel)
+SC.addTrainingSection('digits', onTrainDigits, onSaveModel, onLoadModel)
 
-const trainGridBtn = document.getElementById('trainGridBtn')
-trainGridBtn.addEventListener('click', onTrainGrid)
-
-const saveGridBtn = document.getElementById('saveGridBtn')
-saveGridBtn.addEventListener('click', onSaveModel('grid'))
-
-const loadGridBtn = document.getElementById('loadGridBtn')
-loadGridBtn.addEventListener('click', onLoadModel('grid'))
-
-// Blanks
-
-const trainBlanksBtn = document.getElementById('trainBlanksBtn')
-trainBlanksBtn.addEventListener('click', onTrainBlanks)
-
-const saveBlanksBtn = document.getElementById('saveBlanksBtn')
-saveBlanksBtn.addEventListener('click', onSaveModel('blanks'))
-
-const loadBlanksBtn = document.getElementById('loadBlanksBtn')
-loadBlanksBtn.addEventListener('click', onLoadModel('blanks'))
-
-// Digits
-
-const trainDigitsBtn = document.getElementById('trainDigitsBtn')
-trainDigitsBtn.addEventListener('click', onTrainDigits)
-
-const saveDigitsBtn = document.getElementById('saveDigitsBtn')
-saveDigitsBtn.addEventListener('click', onSaveModel('digits'))
-
-const loadDigitsBtn = document.getElementById('loadDigitsBtn')
-loadDigitsBtn.addEventListener('click', onLoadModel('digits'))
-
-// Predictions
-
-const predictGridBtn = document.getElementById('predictGridBtn')
-predictGridBtn.addEventListener('click', onPredictGrid)
-
-const clearGridPredictionsBtn = document.getElementById('clearGridPredictionsBtn')
-clearGridPredictionsBtn.addEventListener('click', () => deleteChildren(document.getElementById('gridPredictions')))
-
-const predictBlanksBtn = document.getElementById('predictBlanksBtn')
-predictBlanksBtn.addEventListener('click', onPredictBlanks)
-
-const clearBlanksPredictionsBtn = document.getElementById('clearBlanksPredictionsBtn')
-clearBlanksPredictionsBtn.addEventListener('click', () => deleteChildren(document.getElementById('blanksPredictions')))
-
-const predictDigitsBtn = document.getElementById('predictDigitsBtn')
-predictDigitsBtn.addEventListener('click', onPredictDigits)
-
-const clearDigitsPredictionsBtn = document.getElementById('clearDigitsPredictionsBtn')
-clearDigitsPredictionsBtn.addEventListener('click', () => deleteChildren(document.getElementById('digitsPredictions')))
-
-const predictBlanksDigitsBtn = document.getElementById('predictBlanksDigitsBtn')
-predictBlanksDigitsBtn.addEventListener('click', onPredictBlanksDigits)
-
-const clearBlanksDigitsPredictionsBtn = document.getElementById('clearBlanksDigitsPredictionsBtn')
-clearBlanksDigitsPredictionsBtn.addEventListener('click', () => deleteChildren(document.getElementById('blanksDigitsPredictions')))
-
-const predictGridBlanksDigitsBtn = document.getElementById('predictGridBlanksDigitsBtn')
-predictGridBlanksDigitsBtn.addEventListener('click', onPredictGridBlanksDigits)
-
-const clearGridBlanksDigitsPredictionsBtn = document.getElementById('clearGridBlanksDigitsPredictionsBtn')
-clearGridBlanksDigitsPredictionsBtn.addEventListener('click', () => deleteChildren(document.getElementById('gridBlanksDigitsPredictions')))
+SC.addPredictionSection('grid', onPredictGrid)
+SC.addPredictionSection('blanks', onPredictBlanks)
+SC.addPredictionSection('digits', onPredictDigits)
+SC.addPredictionSection('blanks-digits', onPredictBlanksDigits)
+SC.addPredictionSection('grid-blanks-digits', onPredictGridBlanksDigits)
 
 const predictCaptureBtn = document.getElementById('predictCaptureBtn')
 predictCaptureBtn.addEventListener('click', onPredictCapture)
