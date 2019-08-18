@@ -25,19 +25,18 @@ export const loadImage = async url => {
 
 export const loadGridData = async (data, parentElement) => {
   U.deleteChildren(parentElement)
-  const cornersArray = data.map(item => CALC.calculateBoxCorners(item.boundingBox))
+  const targets = data.map(item => item.boundingBox)
   const urls = R.pluck('url', data)
   const promises = urls.map(loadImage)
   const imageTensors = await Promise.all(promises)
   imageTensors.forEach(async (imageTensor, index) => {
     const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
-    const corners = cornersArray[index]
-    DC.drawCorners(canvas, corners, 'blue')
-    // const boxCorners = CALC.calculateBoxCorners(data[index].boundingBox)
-    // DC.drawCorners(canvas, boxCorners, 'blue')
+    canvas.setAttribute('title', data[index].url)
+    const target = targets[index]
+    DC.drawBoundingBox(canvas, target, 'blue')
   })
   const xs = tf.stack(imageTensors)
-  const ys = tf.tensor2d(cornersArray, undefined, 'int32')
+  const ys = tf.tensor2d(targets, undefined, 'int32')
   return { xs, ys }
 }
 

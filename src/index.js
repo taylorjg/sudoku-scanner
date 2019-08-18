@@ -52,14 +52,14 @@ const getPredictionElement = (name, selector) =>
 const createGridModel = () => {
 
   const inputShape = [C.GRID_IMAGE_HEIGHT, C.GRID_IMAGE_WIDTH, C.GRID_IMAGE_CHANNELS]
-  const conv2dArgs = {
-    kernelSize: 7,
-    filters: 8,
-    // activation: 'sigmoid',
-    activation: 'tanh',
-    strides: 1,
-    kernelInitializer: 'varianceScaling'
-  }
+  // const conv2dArgs = {
+  //   kernelSize: 7,
+  //   filters: 8,
+  //   // activation: 'sigmoid',
+  //   activation: 'tanh',
+  //   strides: 1,
+  //   kernelInitializer: 'varianceScaling'
+  // }
   const maxPooling2dArgs = {
     poolSize: [2, 2],
     strides: [2, 2]
@@ -67,20 +67,20 @@ const createGridModel = () => {
 
   const model = tf.sequential()
 
-  model.add(tf.layers.conv2d({ inputShape, ...conv2dArgs }))
+  model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 8, strides: 1, activation: 'relu6' }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
+  model.add(tf.layers.conv2d({ kernelSize: 3, filters: 8, strides: 2, activation: 'relu6' }))
   model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
-  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
-  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
+  model.add(tf.layers.conv2d({ kernelSize: 1, filters: 8, strides: 1 }))
+  // model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  // model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
+  // model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
+  // model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
 
   model.add(tf.layers.flatten())
 
-  model.add(tf.layers.dense({ units: 216 * 4, activation: 'relu' }))
-  model.add(tf.layers.dense({ units: 216 }))
+  model.add(tf.layers.dense({ units: 200, activation: 'relu' }))
+  model.add(tf.layers.dense({ units: 4 }))
 
   model.summary()
 
@@ -392,19 +392,21 @@ const onPredictGrid = async () => {
   const imageTensors = await Promise.all(promises)
   const input = tf.stack(imageTensors)
   const output = models.grid.model.predict(input)
-  const cornersTargetsArray = testData.map(item => CALC.calculateBoxCorners(item.boundingBox))
-  const cornersPredictionsArray = output.arraySync()
+  const targetsArray = testData.map(item => item.boundingBox)
+  const predictionsArray = output.arraySync()
   const parentElement = getPredictionElement('grid', '.results')
   U.deleteChildren(parentElement)
-  imageTensors.map(async (imageTensor, index) => {
-    const cornersTarget = cornersTargetsArray[index]
-    const cornersPrediction = cornersPredictionsArray[index]
-    console.log(`cornersTarget [${index}]: ${JSON.stringify(cornersTarget)}`)
-    console.log(`cornersPrediction [${index}]: ${JSON.stringify(cornersPrediction)}`)
+  const promises2 = imageTensors.map(async (imageTensor, index) => {
+    const target = targetsArray[index]
+    const prediction = predictionsArray[index]
+    console.log(`target [${index}]: ${JSON.stringify(target)}`)
+    console.log(`prediction [${index}]: ${JSON.stringify(prediction)}`)
     const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
-    DC.drawCorners(canvas, cornersTarget, 'blue')
-    DC.drawCorners(canvas, cornersPrediction, 'red')
+    DC.drawBoundingBox(canvas, target, 'blue')
+    DC.drawBoundingBox(canvas, prediction, 'red')
   })
+  await Promise.all(promises2)
+  updateButtonStates()
 }
 
 const BLANK_PREDICTION_ACCURACY = 0.25
@@ -589,7 +591,7 @@ const onPredictCapture = async () => {
 const onSaveModel = name => async () => {
   try {
     console.log(`Saving model ${name}...`)
-    const saveResult = await models[name].save(`${location.origin}/api/saveModel/${name}`)
+    const saveResult = await models[name].model.save(`${location.origin}/api/saveModel/${name}`)
     console.dir(saveResult)
   } catch (error) {
     console.log(`[onSaveModel(${name})] ERROR: ${error.message}`)
@@ -664,8 +666,10 @@ SC.addPredictionSection('blanks-digits', onPredictBlanksDigits)
 SC.addPredictionSection('grid-blanks-digits', onPredictGridBlanksDigits)
 
 document.querySelectorAll('.clear-btn').forEach(clearBtn =>
-  clearBtn.addEventListener('click', () =>
-    visor && visor.close()))
+  clearBtn.addEventListener('click', () => {
+    visor && visor.close()
+    updateButtonStates()
+  }))
 
 const predictCaptureBtn = document.getElementById('predict-capture-btn')
 predictCaptureBtn.addEventListener('click', onPredictCapture)
