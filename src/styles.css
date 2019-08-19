@@ -74,8 +74,9 @@
 
 #error-panel {
   position: fixed;
+  max-width: calc(100% - 40px);
+  overflow-wrap: break-word;
   left: 50%;
-  bottom: 20px;
-  width: 500px;
+  bottom: 0;
   transform: translateX(-50%);
 }

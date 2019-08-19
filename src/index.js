@@ -350,11 +350,15 @@ const initialiseCamera = async () => {
 const onTrainGrid = async () => {
   const trainGridBtn = getTrainingElement('grid', '.train-btn')
   try {
+    SC.hideErrorPanel()
     trainGridBtn.disabled = true
     models.grid.model = createGridModel()
     await trainGrid(models.grid.model)
     models.grid.trained = true // eslint-disable-line
     updateButtonStates()
+  } catch (error) {
+    console.log(`[onTrainGrid] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   } finally {
     trainGridBtn.disabled = false
   }
@@ -363,11 +367,15 @@ const onTrainGrid = async () => {
 const onTrainBlanks = async () => {
   const trainBlanksBtn = getTrainingElement('blanks', '.train-btn')
   try {
+    SC.hideErrorPanel()
     trainBlanksBtn.disabled = true
     models.blanks.model = createBlanksModel()
     await trainBlanks(models.blanks.model)
     models.blanks.trained = true // eslint-disable-line
     updateButtonStates()
+  } catch (error) {
+    console.log(`[onTrainBlanks] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   } finally {
     trainBlanksBtn.disabled = false
   }
@@ -376,37 +384,47 @@ const onTrainBlanks = async () => {
 const onTrainDigits = async () => {
   const trainDigitsBtn = getTrainingElement('digits', '.train-btn')
   try {
+    SC.hideErrorPanel()
     trainDigitsBtn.disabled = true
     models.digits.model = createDigitsModel()
     await trainDigits(models.digits.model)
     models.digits.trained = true // eslint-disable-line
     updateButtonStates()
+  } catch (error) {
+    console.log(`[onTrainDigits] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   } finally {
     trainDigitsBtn.disabled = false
   }
 }
 
 const onPredictGrid = async () => {
-  const urls = R.pluck('url', testData)
-  const promises = urls.map(D.loadImage)
-  const imageTensors = await Promise.all(promises)
-  const input = tf.stack(imageTensors)
-  const output = models.grid.model.predict(input)
-  const targetsArray = testData.map(item => item.boundingBox)
-  const predictionsArray = output.arraySync()
-  const parentElement = getPredictionElement('grid', '.results')
-  U.deleteChildren(parentElement)
-  const promises2 = imageTensors.map(async (imageTensor, index) => {
-    const target = targetsArray[index]
-    const prediction = predictionsArray[index]
-    console.log(`target [${index}]: ${JSON.stringify(target)}`)
-    console.log(`prediction [${index}]: ${JSON.stringify(prediction)}`)
-    const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
-    DC.drawBoundingBox(canvas, target, 'blue')
-    DC.drawBoundingBox(canvas, prediction, 'red')
-  })
-  await Promise.all(promises2)
-  updateButtonStates()
+  try {
+    SC.hideErrorPanel()
+    const urls = R.pluck('url', testData)
+    const promises = urls.map(D.loadImage)
+    const imageTensors = await Promise.all(promises)
+    const input = tf.stack(imageTensors)
+    const output = models.grid.model.predict(input)
+    const targetsArray = testData.map(item => item.boundingBox)
+    const predictionsArray = output.arraySync()
+    const parentElement = getPredictionElement('grid', '.results')
+    U.deleteChildren(parentElement)
+    const promises2 = imageTensors.map(async (imageTensor, index) => {
+      const target = targetsArray[index]
+      const prediction = predictionsArray[index]
+      console.log(`target [${index}]: ${JSON.stringify(target)}`)
+      console.log(`prediction [${index}]: ${JSON.stringify(prediction)}`)
+      const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
+      DC.drawBoundingBox(canvas, target, 'blue')
+      DC.drawBoundingBox(canvas, prediction, 'red')
+    })
+    await Promise.all(promises2)
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onPredictGrid] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
+  }
 }
 
 const BLANK_PREDICTION_ACCURACY = 0.25
@@ -429,78 +447,80 @@ const normaliseBlankPrediction = prediction =>
     : (prediction <= DIGIT_PREDICTION_UPPER_LIMIT ? 0 : -1)
 
 const onPredictBlanks = async () => {
-
-  const parentElement = getPredictionElement('blanks', '.results')
-  U.deleteChildren(parentElement)
-
-  const yss = []
-  const predictionsArrays = []
-
-  const groups = await D.loadGridSquaresGrouped(testData)
-  for (const group of groups) {
-    const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
-    const labelsArray = ys.arraySync()
-    const outputs = models.blanks.model.predict(xs)
-    const predictionsArray = outputs.arraySync()
-    const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
-    const ctx = canvas.getContext('2d')
-    for (const { index, gridSquare } of gridSquaresWithDetails) {
-      const label = labelsArray[index]
-      const prediction = predictionsArray[index]
-      const colour = isBlankPredictionTooInaccurate(prediction)
-        ? 'orange'
-        : isBlankPredictionCorrect(label, prediction) ? 'green' : 'red'
-      ctx.strokeStyle = colour
-      ctx.strokeRect(...gridSquare)
+  try {
+    SC.hideErrorPanel()
+    const parentElement = getPredictionElement('blanks', '.results')
+    U.deleteChildren(parentElement)
+    const yss = []
+    const predictionsArrays = []
+    const groups = await D.loadGridSquaresGrouped(testData)
+    for (const group of groups) {
+      const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
+      const labelsArray = ys.arraySync()
+      const outputs = models.blanks.model.predict(xs)
+      const predictionsArray = outputs.arraySync()
+      const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
+      const ctx = canvas.getContext('2d')
+      for (const { index, gridSquare } of gridSquaresWithDetails) {
+        const label = labelsArray[index]
+        const prediction = predictionsArray[index]
+        const colour = isBlankPredictionTooInaccurate(prediction)
+          ? 'orange'
+          : isBlankPredictionCorrect(label, prediction) ? 'green' : 'red'
+        ctx.strokeStyle = colour
+        ctx.strokeRect(...gridSquare)
+      }
+      yss.push(ys)
+      predictionsArrays.push(predictionsArray)
     }
-    yss.push(ys)
-    predictionsArrays.push(predictionsArray)
+    const overallLabels = tf.concat(yss)
+    const overallPredictionsArray = R.unnest(predictionsArrays)
+    const overallPredictions = tf.tensor1d(overallPredictionsArray.map(normaliseBlankPrediction))
+    const classAccuracy = await tfvis.metrics.perClassAccuracy(overallLabels, overallPredictions)
+    const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
+    const classNames = ['Blank', 'Digit']
+    tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onPredictBlanks] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   }
-
-  const overallLabels = tf.concat(yss)
-  const overallPredictionsArray = R.unnest(predictionsArrays)
-  const overallPredictions = tf.tensor1d(overallPredictionsArray.map(normaliseBlankPrediction))
-  const classAccuracy = await tfvis.metrics.perClassAccuracy(overallLabels, overallPredictions)
-  const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
-  const classNames = ['Blank', 'Digit']
-  tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
-
-  updateButtonStates()
 }
 
 const onPredictDigits = async () => {
-
-  const parentElement = getPredictionElement('digits', '.results')
-  U.deleteChildren(parentElement)
-
-  const yss = []
-  const outputsArray = []
-
-  const groups = await D.loadDigitsGrouped(testData)
-  for (const group of groups) {
-    const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
-    const labelsArray = ys.argMax(1).arraySync()
-    const outputs = models.digits.model.predict(xs)
-    const predictionsArray = outputs.argMax(1).arraySync()
-    const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
-    const ctx = canvas.getContext('2d')
-    for (const { index, gridSquare } of gridSquaresWithDetails) {
-      const correct = predictionsArray[index] === labelsArray[index]
-      ctx.strokeStyle = correct ? 'green' : 'red'
-      ctx.strokeRect(...gridSquare)
+  try {
+    SC.hideErrorPanel()
+    const parentElement = getPredictionElement('digits', '.results')
+    U.deleteChildren(parentElement)
+    const yss = []
+    const outputsArray = []
+    const groups = await D.loadDigitsGrouped(testData)
+    for (const group of groups) {
+      const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
+      const labelsArray = ys.argMax(1).arraySync()
+      const outputs = models.digits.model.predict(xs)
+      const predictionsArray = outputs.argMax(1).arraySync()
+      const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
+      const ctx = canvas.getContext('2d')
+      for (const { index, gridSquare } of gridSquaresWithDetails) {
+        const correct = predictionsArray[index] === labelsArray[index]
+        ctx.strokeStyle = correct ? 'green' : 'red'
+        ctx.strokeRect(...gridSquare)
+      }
+      yss.push(ys)
+      outputsArray.push(outputs)
     }
-    yss.push(ys)
-    outputsArray.push(outputs)
+    const overallLabels = tf.concat(yss).argMax(1)
+    const overallPredictions = tf.concat(outputsArray).argMax(1)
+    const classAccuracy = await tfvis.metrics.perClassAccuracy(overallLabels, overallPredictions)
+    const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
+    const classNames = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+    tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onPredictDigits] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   }
-
-  const overallLabels = tf.concat(yss).argMax(1)
-  const overallPredictions = tf.concat(outputsArray).argMax(1)
-  const classAccuracy = await tfvis.metrics.perClassAccuracy(overallLabels, overallPredictions)
-  const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
-  const classNames = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-  tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
-
-  updateButtonStates()
 }
 
 const toRows = indexedDigitPredictions =>
@@ -516,52 +536,49 @@ const toRows = indexedDigitPredictions =>
 // Using given bounding boxes, predict blanks then predict digits
 // Draw resultant images highlighting correct/incorrect predictions
 const onPredictBlanksDigits = async () => {
-  const data = await D.loadGridSquaresGrouped(testData)
-  const parentElement = getPredictionElement('blanks-digits', '.results')
-  U.deleteChildren(parentElement)
-  for (const datum of data) {
-
-    const { xs, gridImageTensor, gridSquaresWithDetails } = datum
-
-    parentElement.appendChild(document.createElement('br'))
-    const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
-    const ctx = canvas.getContext('2d')
-
-    const blanksPredictionsArray = models.blanks.model.predict(xs).arraySync()
-
-    if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
-      DC.drawBigRedCross(ctx, datum.item.boundingBox)
-      continue
+  try {
+    SC.hideErrorPanel()
+    const groups = await D.loadGridSquaresGrouped(testData)
+    const parentElement = getPredictionElement('blanks-digits', '.results')
+    U.deleteChildren(parentElement)
+    for (const group of groups) {
+      const { xs, gridImageTensor, gridSquaresWithDetails } = group
+      parentElement.appendChild(document.createElement('br'))
+      const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
+      const ctx = canvas.getContext('2d')
+      const blanksPredictionsArray = models.blanks.model.predict(xs).arraySync()
+      if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
+        DC.drawBigRedCross(ctx, group.item.boundingBox)
+        continue
+      }
+      const [blanks, digits] = R.partition(({ index }) =>
+        blanksPredictionsArray[index] >= BLANK_PREDICTION_LOWER_LIMIT, gridSquaresWithDetails)
+      for (const { isBlank, gridSquare } of blanks) {
+        ctx.strokeStyle = isBlank ? 'green' : 'red'
+        ctx.lineWidth = 1
+        ctx.strokeRect(...gridSquare)
+      }
+      const xsarr = tf.unstack(xs)
+      const indexedDigitPredictions = digits.map(({ index, digit, gridSquare }) => {
+        const x = xsarr[index]
+        const inputs = tf.stack([x])
+        const outputs = models.digits.model.predict(inputs)
+        const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
+        ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
+        ctx.lineWidth = 1
+        ctx.strokeRect(...gridSquare)
+        return { digitPrediction, index }
+      })
+      const rows = toRows(indexedDigitPredictions)
+      const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
+      parentElement.appendChild(svgElement)
+      DS.drawInitialGrid(svgElement, rows)
     }
-
-    const [blanks, digits] = R.partition(({ index }) =>
-      blanksPredictionsArray[index] >= BLANK_PREDICTION_LOWER_LIMIT, gridSquaresWithDetails)
-
-    for (const { isBlank, gridSquare } of blanks) {
-      ctx.strokeStyle = isBlank ? 'green' : 'red'
-      ctx.lineWidth = 1
-      ctx.strokeRect(...gridSquare)
-    }
-
-    const xsarr = tf.unstack(xs)
-    const indexedDigitPredictions = digits.map(({ index, digit, gridSquare }) => {
-      const x = xsarr[index]
-      const inputs = tf.stack([x])
-      const outputs = models.digits.model.predict(inputs)
-      const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
-      ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
-      ctx.lineWidth = 1
-      ctx.strokeRect(...gridSquare)
-      return { digitPrediction, index }
-    })
-
-    const rows = toRows(indexedDigitPredictions)
-    const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
-    parentElement.appendChild(svgElement)
-    DS.drawInitialGrid(svgElement, rows)
+    updateButtonStates()
+  } catch (error) {
+    console.log(`[onPredictBlanksDigits] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   }
-
-  updateButtonStates()
 }
 
 // Predict bounding boxes then predict blanks then predict digits
