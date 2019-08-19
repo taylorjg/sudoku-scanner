@@ -71,3 +71,11 @@
   fill: black;
   font-size: 16px;
 }
+
+#error-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  width: 500px;
+  transform: translateX(-50%);
+}

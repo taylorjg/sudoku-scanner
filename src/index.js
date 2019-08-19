@@ -6,7 +6,7 @@ import axios from 'axios'
 import * as C from './constants'
 import * as D from './data'
 import * as I from './image'
-import * as CALC from './calculations'
+// import * as CALC from './calculations'
 import * as DC from './drawCanvas'
 import * as DS from './drawSvg'
 import * as SC from './simpleComponents'
@@ -560,6 +560,8 @@ const onPredictBlanksDigits = async () => {
     parentElement.appendChild(svgElement)
     DS.drawInitialGrid(svgElement, rows)
   }
+
+  updateButtonStates()
 }
 
 // Predict bounding boxes then predict blanks then predict digits
@@ -590,22 +592,26 @@ const onPredictCapture = async () => {
 
 const onSaveModel = name => async () => {
   try {
+    SC.hideErrorPanel()
     console.log(`Saving model ${name}...`)
     const saveResult = await models[name].model.save(`${location.origin}/api/saveModel/${name}`)
     console.dir(saveResult)
   } catch (error) {
     console.log(`[onSaveModel(${name})] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   }
 }
 
 const onLoadModel = name => async () => {
   try {
+    SC.hideErrorPanel()
     console.log(`Loading model ${name}...`)
     models[name].model = await tf.loadLayersModel(`${location.origin}/models/${name}/model.json`)
     models[name].trained = true
     updateButtonStates()
   } catch (error) {
     console.log(`[onLoadModel(${name})] ERROR: ${error.message}`)
+    SC.showErrorPanel(error.message)
   }
 }
 

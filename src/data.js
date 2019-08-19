@@ -36,7 +36,7 @@ export const loadGridData = async (data, parentElement) => {
     DC.drawBoundingBox(canvas, target, 'blue')
   })
   const xs = tf.stack(imageTensors)
-  const ys = tf.tensor2d(targets, undefined, 'int32')
+  const ys = tf.tensor2d(targets)
   return { xs, ys }
 }
 
