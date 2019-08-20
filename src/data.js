@@ -1,34 +1,17 @@
 import * as tf from '@tensorflow/tfjs'
-import * as log from 'loglevel'
 import * as R from 'ramda'
 import * as C from './constants'
 import * as CALC from './calculations'
 import * as DC from './drawCanvas'
+import * as I from './image'
 import * as U from './utils'
 import puzzles from '../data/puzzles.json'
-
-// key: url, value: tensor3d
-const GRID_IMAGE_CACHE = new Map()
-
-export const loadImage = async url => {
-  const existingImageTensor = GRID_IMAGE_CACHE.get(url)
-  if (existingImageTensor) return existingImageTensor
-  const promise = new Promise(resolve => {
-    log.info(`Loading ${url}`)
-    const image = new Image()
-    image.onload = () => resolve(tf.browser.fromPixels(image, C.GRID_IMAGE_CHANNELS))
-    image.src = url
-  })
-  const imageTensor = await promise
-  GRID_IMAGE_CACHE.set(url, imageTensor)
-  return imageTensor
-}
 
 export const loadGridData = async (data, parentElement) => {
   U.deleteChildren(parentElement)
   const targets = data.map(item => item.boundingBox)
   const urls = R.pluck('url', data)
-  const promises = urls.map(loadImage)
+  const promises = urls.map(I.loadImage)
   const imageTensors = await Promise.all(promises)
   imageTensors.forEach(async (imageTensor, index) => {
     const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
@@ -97,7 +80,7 @@ export const cropGridSquaresFromGrid = (item, gridImageTensor) => {
 // tf.tidy ?
 export const loadCroppedDataGrouped = async (data, cropFunction) => {
   const urls = R.pluck('url', data)
-  const promises = urls.map(loadImage)
+  const promises = urls.map(I.loadImage)
   const gridImageTensorsArray = await Promise.all(promises)
   return gridImageTensorsArray.map((gridImageTensor, index) => {
     const item = data[index]

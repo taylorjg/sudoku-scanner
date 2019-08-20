@@ -14,17 +14,13 @@ import * as SC from './simpleComponents'
 import * as U from './utils'
 
 import trainingData from '../data/training-data.json'
-import trainingData2 from '../data/training-data-2.json'
+// import trainingData2 from '../data/training-data-2.json'
 import validationData from '../data/validation-data.json'
 import testData from '../data/test-data.json'
 
 log.setLevel('info')
 
 const models = {
-  grid: {
-    model: undefined,
-    trained: false
-  },
   blanks: {
     model: undefined,
     trained: false
@@ -52,24 +48,16 @@ const getTrainingElement = (name, selector) =>
 const getPredictionElement = (name, selector) =>
   document.querySelector(`#prediction-section-${name} ${selector}`)
 
-// --------------------------------------------------------------------
-// ------------------------------ OpenCV ------------------------------
-// --------------------------------------------------------------------
-
 // http://emaraic.com/blog/realtime-sudoku-solver
-
-// in: Tensor3D containing the grid image (returned by loadImage)
-// - or, we could accept imageData:
-// const matInitial = cv.matFromImageData(imageData)
-// out: bounding box [x, w, w, h]
-const findBoundingBox = async (gridImageTensor, targetBoundingBox) => {
+const findBoundingBox = async (parentElement, gridImageTensor, targetBoundingBox) => {
 
   const tfCanvas = document.createElement('canvas')
   await tf.browser.toPixels(gridImageTensor, tfCanvas)
   const matInitial = cv.imread(tfCanvas)
 
   const matCanvas = document.createElement('canvas')
-  document.querySelector('body').appendChild(matCanvas)
+  matCanvas.setAttribute('class', 'grid-image')
+  parentElement.appendChild(matCanvas)
   cv.imshow(matCanvas, matInitial)
 
   const matGrey = new cv.Mat(matInitial.size(), cv.CV_8UC1)
@@ -106,48 +94,6 @@ const findBoundingBox = async (gridImageTensor, targetBoundingBox) => {
   DC.drawBoundingBox(matCanvas, boundingBox, 'red')
 
   return boundingBox
-}
-
-// --------------------------------------------------------------------
-// ------------------------------ OpenCV ------------------------------
-// --------------------------------------------------------------------
-
-const createGridModel = () => {
-
-  const inputShape = [C.GRID_IMAGE_HEIGHT, C.GRID_IMAGE_WIDTH, C.GRID_IMAGE_CHANNELS]
-  // const conv2dArgs = {
-  //   kernelSize: 7,
-  //   filters: 8,
-  //   // activation: 'sigmoid',
-  //   activation: 'tanh',
-  //   strides: 1,
-  //   kernelInitializer: 'varianceScaling'
-  // }
-  const maxPooling2dArgs = {
-    poolSize: [2, 2],
-    strides: [2, 2]
-  }
-
-  const model = tf.sequential()
-
-  model.add(tf.layers.conv2d({ inputShape, kernelSize: 3, filters: 8, strides: 1, activation: 'relu6' }))
-  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d({ kernelSize: 3, filters: 8, strides: 2, activation: 'relu6' }))
-  model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  model.add(tf.layers.conv2d({ kernelSize: 1, filters: 8, strides: 1 }))
-  // model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  // model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
-  // model.add(tf.layers.maxPooling2d(maxPooling2dArgs))
-  // model.add(tf.layers.conv2d({ ...conv2dArgs, activation: 'tanh' }))
-
-  model.add(tf.layers.flatten())
-
-  model.add(tf.layers.dense({ units: 200, activation: 'relu' }))
-  model.add(tf.layers.dense({ units: 4 }))
-
-  model.summary()
-
-  return model
 }
 
 const createBlanksModel = () => {
@@ -210,38 +156,6 @@ const createDigitsModel = () => {
   model.summary()
 
   return model
-}
-
-const trainGrid = async model => {
-
-  const combinedData = trainingData.concat(trainingData2).concat(validationData)
-  tf.util.shuffle(combinedData)
-  const parentElement = getTrainingElement('grid', '.training-data')
-  const { xs, ys } = await D.loadGridData(combinedData, parentElement)
-
-  model.compile({
-    optimizer: 'rmsprop',
-    // loss: 'meanSquaredError'
-    loss: 'meanAbsoluteError'
-  })
-
-  const trainingSurface = getVisor().surface({ tab: 'Grid', name: 'Model Training' })
-  const customCallback = tfvis.show.fitCallbacks(
-    trainingSurface,
-    ['loss', 'val_loss'],
-    {
-      callbacks: ['onBatchEnd', 'onEpochEnd']
-    })
-
-  const params = {
-    batchSize: 10,
-    epochs: 20,
-    shuffle: true,
-    validationSplit: 0.20,
-    callbacks: customCallback
-  }
-
-  return model.fit(xs, ys, params)
 }
 
 const trainBlanks = async model => {
@@ -411,23 +325,6 @@ const initialiseCamera = async () => {
   updateButtonState()
 }
 
-const onTrainGrid = async () => {
-  const trainGridBtn = getTrainingElement('grid', '.train-btn')
-  try {
-    SC.hideErrorPanel()
-    trainGridBtn.disabled = true
-    models.grid.model = createGridModel()
-    await trainGrid(models.grid.model)
-    models.grid.trained = true // eslint-disable-line
-    updateButtonStates()
-  } catch (error) {
-    log.error(`[onTrainGrid] ${error.message}`)
-    SC.showErrorPanel(error.message)
-  } finally {
-    trainGridBtn.disabled = false
-  }
-}
-
 const onTrainBlanks = async () => {
   const trainBlanksBtn = getTrainingElement('blanks', '.train-btn')
   try {
@@ -465,25 +362,13 @@ const onTrainDigits = async () => {
 const onPredictGrid = async () => {
   try {
     SC.hideErrorPanel()
-    const urls = R.pluck('url', testData)
-    const promises = urls.map(D.loadImage)
-    const imageTensors = await Promise.all(promises)
-    const input = tf.stack(imageTensors)
-    const output = models.grid.model.predict(input)
-    const targetsArray = testData.map(item => item.boundingBox)
-    const predictionsArray = output.arraySync()
     const parentElement = getPredictionElement('grid', '.results')
     U.deleteChildren(parentElement)
-    const promises2 = imageTensors.map(async (imageTensor, index) => {
-      const target = targetsArray[index]
-      const prediction = predictionsArray[index]
-      log.info(`target [${index}]: ${JSON.stringify(target)}`)
-      log.info(`prediction [${index}]: ${JSON.stringify(prediction)}`)
-      const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
-      DC.drawBoundingBox(canvas, target, 'blue')
-      DC.drawBoundingBox(canvas, prediction, 'red')
+    const promises = testData.map(async item => {
+      const gridImageTensor = await I.loadImage(item.url)
+      return findBoundingBox(parentElement, gridImageTensor, item.boundingBox)
     })
-    await Promise.all(promises2)
+    await Promise.all(promises)
     updateButtonStates()
   } catch (error) {
     log.error(`[onPredictGrid] ${error.message}`)
@@ -698,28 +583,22 @@ const onLoadModel = name => async () => {
 
 const updateButtonStates = () => {
 
-  const saveGridBtn = getTrainingElement('grid', '.save-btn')
   const saveBlanksBtn = getTrainingElement('blanks', '.save-btn')
   const saveDigitsBtn = getTrainingElement('digits', '.save-btn')
 
-  saveGridBtn.disabled = !models.grid.trained
   saveBlanksBtn.disabled = !models.blanks.trained
   saveDigitsBtn.disabled = !models.digits.trained
 
-  const allTrained = false && models.grid.trained && models.blanks.trained && models.digits.trained
-
-  const predictGridBtn = getPredictionElement('grid', '.predict-btn')
   const predictBlanksBtn = getPredictionElement('blanks', '.predict-btn')
   const predictDigitsBtn = getPredictionElement('digits', '.predict-btn')
   const predictBlanksDigitsBtn = getPredictionElement('blanks-digits', '.predict-btn')
   const predictGridBlanksDigitsBtn = getPredictionElement('grid-blanks-digits', '.predict-btn')
 
-  predictGridBtn.disabled = !models.grid.trained
   predictBlanksBtn.disabled = !models.blanks.trained
   predictDigitsBtn.disabled = !models.digits.trained
   predictBlanksDigitsBtn.disabled = !(models.blanks.trained && models.digits.trained)
-  predictGridBlanksDigitsBtn.disabled = !allTrained
-  predictCaptureBtn.disabled = !(allTrained && imageData)
+  predictGridBlanksDigitsBtn.disabled = !(models.blanks.trained && models.digits.trained)
+  predictCaptureBtn.disabled = !(models.blanks.trained && models.digits.trained && imageData)
 
   const clearGridBtn = getPredictionElement('grid', '.clear-btn')
   const clearBlanksBtn = getPredictionElement('blanks', '.clear-btn')
@@ -742,7 +621,6 @@ const updateButtonStates = () => {
   showVisorBtn.disabled = !visor
 }
 
-SC.addTrainingSection('grid', onTrainGrid, onSaveModel, onLoadModel)
 SC.addTrainingSection('blanks', onTrainBlanks, onSaveModel, onLoadModel)
 SC.addTrainingSection('digits', onTrainDigits, onSaveModel, onLoadModel)
 
@@ -769,12 +647,6 @@ updateButtonStates()
 const main = async () => {
   drawGuides()
   initialiseCamera()
-  await new Promise(resolve => setTimeout(resolve, 3000))
-  const data = trainingData.concat(trainingData2).concat(validationData).concat(testData)
-  data.forEach(async item => {
-    const gridImageTensor = await D.loadImage(item.url)
-    findBoundingBox(gridImageTensor, item.boundingBox)
-  })
 }
 
 main()
