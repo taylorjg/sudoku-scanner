@@ -17,7 +17,8 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin([
       { context: './src', from: '*.html' },
-      { context: './src', from: '*.css' }
+      { context: './src', from: '*.css' },
+      { context: './src', from: 'opencv_4.1.1.js' }
     ]),
     new HtmlWebpackPlugin({
       template: './src/index.html',

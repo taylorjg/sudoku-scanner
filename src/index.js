@@ -6,7 +6,6 @@ import axios from 'axios'
 import * as C from './constants'
 import * as D from './data'
 import * as I from './image'
-// import * as CALC from './calculations'
 import * as DC from './drawCanvas'
 import * as DS from './drawSvg'
 import * as SC from './simpleComponents'
@@ -48,6 +47,51 @@ const getTrainingElement = (name, selector) =>
 
 const getPredictionElement = (name, selector) =>
   document.querySelector(`#prediction-section-${name} ${selector}`)
+
+// --------------------------------------------------------------------
+// ------------------------------ OpenCV ------------------------------
+// --------------------------------------------------------------------
+
+// http://emaraic.com/blog/realtime-sudoku-solver
+
+// /*Convert to grayscale mode*/
+// Mat sourceGrey = new Mat(colorimg.size(), CV_8UC1);
+// cvtColor(colorimg, sourceGrey, COLOR_BGR2GRAY);
+// //imwrite("gray.jpg", new Mat(image)); // Save gray version of image
+
+// /*Apply Gaussian Filter*/
+// Mat blurimg = new Mat(colorimg.size(), CV_8UC1);
+// GaussianBlur(sourceGrey, blurimg, new Size(5, 5), 0);
+// //imwrite("blur.jpg", binimg);
+
+// /*Binarising Image*/
+// Mat binimg = new Mat(colorimg.size());
+// adaptiveThreshold(blurimg, binimg, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 19, 3);
+// //imwrite("binarise.jpg", binimg);
+
+// private static Rect getLargestRect(Mat img) {
+// 	MatVector countours = new MatVector();
+// 	List rects = new ArrayList<>();
+// 	List araes = new ArrayList<>();
+// 	findContours(img, countours, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, new Point(0, 0));
+// 	for (int i = 0; i < countours.size(); i++) {
+// 	    Mat c = countours.get(i);
+// 	    double area = contourArea(c);
+// 	    Rect boundingRect = boundingRect(c);
+// 	    araes.add(area);
+// 	    rects.add(boundingRect);
+// 	}
+// 	if (araes.isEmpty() || Collections.max(araes) < 4000) {
+// 	    return new Rect(0, 0, img.cols(), img.rows());
+// 	} else {
+// 	    Double d = Collections.max(araes);
+// 	    return rects.get(araes.indexOf(d));
+// 	}
+// }
+
+// --------------------------------------------------------------------
+// ------------------------------ OpenCV ------------------------------
+// --------------------------------------------------------------------
 
 const createGridModel = () => {
 
