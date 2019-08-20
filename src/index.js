@@ -1,6 +1,7 @@
 import * as tf from '@tensorflow/tfjs'
 import * as tfvis from '@tensorflow/tfjs-vis'
 import * as R from 'ramda'
+import * as log from 'loglevel'
 import axios from 'axios'
 
 import * as C from './constants'
@@ -15,6 +16,8 @@ import trainingData from '../data/training-data.json'
 import trainingData2 from '../data/training-data-2.json'
 import validationData from '../data/validation-data.json'
 import testData from '../data/test-data.json'
+
+log.setLevel('info')
 
 const models = {
   grid: {
@@ -401,7 +404,7 @@ const onTrainGrid = async () => {
     models.grid.trained = true // eslint-disable-line
     updateButtonStates()
   } catch (error) {
-    console.log(`[onTrainGrid] ERROR: ${error.message}`)
+    log.error(`[onTrainGrid] ${error.message}`)
     SC.showErrorPanel(error.message)
   } finally {
     trainGridBtn.disabled = false
@@ -418,7 +421,7 @@ const onTrainBlanks = async () => {
     models.blanks.trained = true // eslint-disable-line
     updateButtonStates()
   } catch (error) {
-    console.log(`[onTrainBlanks] ERROR: ${error.message}`)
+    log.error(`[onTrainBlanks] ${error.message}`)
     SC.showErrorPanel(error.message)
   } finally {
     trainBlanksBtn.disabled = false
@@ -435,7 +438,7 @@ const onTrainDigits = async () => {
     models.digits.trained = true // eslint-disable-line
     updateButtonStates()
   } catch (error) {
-    console.log(`[onTrainDigits] ERROR: ${error.message}`)
+    log.error(`[onTrainDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
   } finally {
     trainDigitsBtn.disabled = false
@@ -457,8 +460,8 @@ const onPredictGrid = async () => {
     const promises2 = imageTensors.map(async (imageTensor, index) => {
       const target = targetsArray[index]
       const prediction = predictionsArray[index]
-      console.log(`target [${index}]: ${JSON.stringify(target)}`)
-      console.log(`prediction [${index}]: ${JSON.stringify(prediction)}`)
+      log.info(`target [${index}]: ${JSON.stringify(target)}`)
+      log.info(`prediction [${index}]: ${JSON.stringify(prediction)}`)
       const canvas = await DC.drawGridImageTensor(parentElement, imageTensor)
       DC.drawBoundingBox(canvas, target, 'blue')
       DC.drawBoundingBox(canvas, prediction, 'red')
@@ -466,7 +469,7 @@ const onPredictGrid = async () => {
     await Promise.all(promises2)
     updateButtonStates()
   } catch (error) {
-    console.log(`[onPredictGrid] ERROR: ${error.message}`)
+    log.error(`[onPredictGrid] ${error.message}`)
     SC.showErrorPanel(error.message)
   }
 }
@@ -526,7 +529,7 @@ const onPredictBlanks = async () => {
     tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
     updateButtonStates()
   } catch (error) {
-    console.log(`[onPredictBlanks] ERROR: ${error.message}`)
+    log.error(`[onPredictBlanks] ${error.message}`)
     SC.showErrorPanel(error.message)
   }
 }
@@ -562,7 +565,7 @@ const onPredictDigits = async () => {
     tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
     updateButtonStates()
   } catch (error) {
-    console.log(`[onPredictDigits] ERROR: ${error.message}`)
+    log.error(`[onPredictDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
   }
 }
@@ -620,7 +623,7 @@ const onPredictBlanksDigits = async () => {
     }
     updateButtonStates()
   } catch (error) {
-    console.log(`[onPredictBlanksDigits] ERROR: ${error.message}`)
+    log.error(`[onPredictBlanksDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
   }
 }
@@ -645,7 +648,7 @@ const onPredictCapture = async () => {
   // const input = tf.stack([imageTensor])
   // const output = model.predict(input)
   // const boundingBoxPrediction = output.arraySync()[0]
-  // console.log(`boundingBoxPrediction: ${JSON.stringify(boundingBoxPrediction)}`)
+  // log.info(`boundingBoxPrediction: ${JSON.stringify(boundingBoxPrediction)}`)
   // drawImageTensor(imageTensor, undefined, boundingBoxPrediction)
   // const body = document.querySelector('body')
   // DC.drawGridImageTensor(body, imageTensor)
@@ -654,11 +657,11 @@ const onPredictCapture = async () => {
 const onSaveModel = name => async () => {
   try {
     SC.hideErrorPanel()
-    console.log(`Saving model ${name}...`)
+    log.info(`Saving model ${name}...`)
     const saveResult = await models[name].model.save(`${location.origin}/api/saveModel/${name}`)
-    console.dir(saveResult)
+    log.info(`saveResult: ${JSON.stringify(saveResult)}`)
   } catch (error) {
-    console.log(`[onSaveModel(${name})] ERROR: ${error.message}`)
+    log.error(`[onSaveModel(${name})] ${error.message}`)
     SC.showErrorPanel(error.message)
   }
 }
@@ -666,12 +669,12 @@ const onSaveModel = name => async () => {
 const onLoadModel = name => async () => {
   try {
     SC.hideErrorPanel()
-    console.log(`Loading model ${name}...`)
+    log.info(`Loading model ${name}...`)
     models[name].model = await tf.loadLayersModel(`${location.origin}/models/${name}/model.json`)
     models[name].trained = true
     updateButtonStates()
   } catch (error) {
-    console.log(`[onLoadModel(${name})] ERROR: ${error.message}`)
+    log.error(`[onLoadModel(${name})] ${error.message}`)
     SC.showErrorPanel(error.message)
   }
 }

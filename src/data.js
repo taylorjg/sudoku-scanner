@@ -1,4 +1,5 @@
 import * as tf from '@tensorflow/tfjs'
+import * as log from 'loglevel'
 import * as R from 'ramda'
 import * as C from './constants'
 import * as CALC from './calculations'
@@ -13,7 +14,7 @@ export const loadImage = async url => {
   const existingImageTensor = GRID_IMAGE_CACHE.get(url)
   if (existingImageTensor) return existingImageTensor
   const promise = new Promise(resolve => {
-    console.log(`Loading ${url}`)
+    log.info(`Loading ${url}`)
     const image = new Image()
     image.onload = () => resolve(tf.browser.fromPixels(image, C.GRID_IMAGE_CHANNELS))
     image.src = url

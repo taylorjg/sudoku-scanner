@@ -2,6 +2,7 @@ const express = require('express')
 const path = require('path')
 const fs = require('fs').promises
 const multer = require('multer')
+const log = require('loglevel')
 
 const PNG_EXT = '.png'
 
@@ -9,9 +10,11 @@ const configureApiRouter = (rawImagesFolder, normalisedImagesFolder, modelsFolde
 
   const myDiskStorage = multer.diskStorage({
     destination: function (req, _file, cb) {
-      const dest = req.params.model
-        ? path.resolve(modelsFolder, req.params.model)
+      const model = req.params.model
+      const dest = model
+        ? path.resolve(modelsFolder, model)
         : modelsFolder
+      log.info(`[multer.diskStorage#destination] model: ${model}; dest: ${dest}`)
       cb(null, dest)
     },
     filename: function (_req, file, cb) {
@@ -41,13 +44,13 @@ const configureApiRouter = (rawImagesFolder, normalisedImagesFolder, modelsFolde
       const dataUrl = req.body.dataUrl
       const data = dataUrl.replace(/^data:image[/]png;base64,/, '')
       const buffer = Buffer.from(data, 'base64')
-      console.log(`[saveImage] buffer.length: ${buffer.length}`)
+      log.info(`[saveImage] buffer.length: ${buffer.length}`)
       const fileName = await getNextFileName(folder)
-      console.log(`[saveImage] saving image to ${fileName}`)
+      log.info(`[saveImage] saving image to ${fileName}`)
       await fs.writeFile(fileName, buffer)
-      res.status(201).send(`Saved image to ${fileName}.`)
+      res.status(201).send(fileName)
     } catch (error) {
-      console.log(`[saveImage] ERROR: ${error.message}`)
+      log.error(`[saveImage] ${error.message}`)
     }
   }
 

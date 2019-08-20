@@ -1,6 +1,7 @@
 const { spawn } = require('child_process')
 const path = require('path')
 const R = require('ramda')
+const log = require('loglevel')
 
 const RAW_IMAGES_FOLDER = path.resolve(__dirname, '..', 'scanned-images', 'raw')
 const NORMALISED_IMAGES_FOLDER = path.resolve(__dirname, '..', 'scanned-images', 'normalised')
@@ -16,9 +17,10 @@ const numberToFileName = n =>
 
 const main = async () => {
   try {
+    log.setLevel('info')
     const startNumber = stringToIntegerOrUndefined(process.argv[2])
     const endNumber = stringToIntegerOrUndefined(process.argv[3])
-    console.log(`[main] startNumber: ${startNumber}; endNumber: ${endNumber}`)
+    log.info(`[main] startNumber: ${startNumber}; endNumber: ${endNumber}`)
     if (startNumber && endNumber && (startNumber <= endNumber)) {
       const fileNames =
         R.range(startNumber, endNumber + 1)
@@ -28,7 +30,7 @@ const main = async () => {
             output: path.resolve(NORMALISED_IMAGES_FOLDER, fileName)
           }))
       const childProcesses = fileNames.map(({ input, output }) => {
-        console.log(`Processing ${input}`)
+        log.info(`Processing ${input}`)
         const args = [
           'convert',
           input,
@@ -48,10 +50,10 @@ const main = async () => {
       )
       await Promise.all(promises)
     } else {
-      console.log(`[main] the program arguments don't look sensible`)
+      log.error(`[main] the program arguments don't look sensible`)
     }
   } catch (error) {
-    console.log(`[main] ERROR: ${error.message}`)
+    log.error(`[main] ERROR: ${error.message}`)
   }
 }
 
