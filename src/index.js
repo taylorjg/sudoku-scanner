@@ -8,6 +8,7 @@ import * as C from './constants'
 import * as D from './data'
 import * as I from './image'
 import * as DC from './drawCanvas'
+import * as CALC from './/calculations'
 import * as DS from './drawSvg'
 import * as SC from './simpleComponents'
 import * as U from './utils'
@@ -57,40 +58,55 @@ const getPredictionElement = (name, selector) =>
 
 // http://emaraic.com/blog/realtime-sudoku-solver
 
-// /*Convert to grayscale mode*/
-// Mat sourceGrey = new Mat(colorimg.size(), CV_8UC1);
-// cvtColor(colorimg, sourceGrey, COLOR_BGR2GRAY);
-// //imwrite("gray.jpg", new Mat(image)); // Save gray version of image
+// in: Tensor3D containing the grid image (returned by loadImage)
+// - or, we could accept imageData:
+// const matInitial = cv.matFromImageData(imageData)
+// out: bounding box [x, w, w, h]
+const findBoundingBox = async (gridImageTensor, targetBoundingBox) => {
 
-// /*Apply Gaussian Filter*/
-// Mat blurimg = new Mat(colorimg.size(), CV_8UC1);
-// GaussianBlur(sourceGrey, blurimg, new Size(5, 5), 0);
-// //imwrite("blur.jpg", binimg);
+  const tfCanvas = document.createElement('canvas')
+  await tf.browser.toPixels(gridImageTensor, tfCanvas)
+  const matInitial = cv.imread(tfCanvas)
 
-// /*Binarising Image*/
-// Mat binimg = new Mat(colorimg.size());
-// adaptiveThreshold(blurimg, binimg, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 19, 3);
-// //imwrite("binarise.jpg", binimg);
+  const matCanvas = document.createElement('canvas')
+  document.querySelector('body').appendChild(matCanvas)
+  cv.imshow(matCanvas, matInitial)
 
-// private static Rect getLargestRect(Mat img) {
-// 	MatVector countours = new MatVector();
-// 	List rects = new ArrayList<>();
-// 	List araes = new ArrayList<>();
-// 	findContours(img, countours, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, new Point(0, 0));
-// 	for (int i = 0; i < countours.size(); i++) {
-// 	    Mat c = countours.get(i);
-// 	    double area = contourArea(c);
-// 	    Rect boundingRect = boundingRect(c);
-// 	    araes.add(area);
-// 	    rects.add(boundingRect);
-// 	}
-// 	if (araes.isEmpty() || Collections.max(araes) < 4000) {
-// 	    return new Rect(0, 0, img.cols(), img.rows());
-// 	} else {
-// 	    Double d = Collections.max(araes);
-// 	    return rects.get(araes.indexOf(d));
-// 	}
-// }
+  const matGrey = new cv.Mat(matInitial.size(), cv.CV_8UC1)
+  cv.cvtColor(matInitial, matGrey, cv.COLOR_BGR2GRAY)
+
+  const matBlur = new cv.Mat(matInitial.size(), cv.CV_8UC1)
+  const ksize = new cv.Size(5, 5)
+  const sigmaX = 0
+  cv.GaussianBlur(matGrey, matBlur, ksize, sigmaX)
+
+  const matBinary = new cv.Mat(matInitial.size(), cv.CV_8UC1)
+  cv.adaptiveThreshold(matBlur, matBinary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 19, 3)
+
+  const contours = new cv.MatVector()
+  const hierarchy = new cv.Mat()
+  const mode = cv.RETR_LIST
+  const method = cv.CHAIN_APPROX_SIMPLE
+  cv.findContours(matBinary, contours, hierarchy, mode, method)
+  const numContours = contours.size()
+  const areasAndBoundingRects = R.range(0, numContours).map(index => {
+    const contour = contours.get(index)
+    const area = cv.contourArea(contour)
+    const boundingRect = cv.boundingRect(contour)
+    return { area, boundingRect }
+  })
+  const sorted = R.sort(R.descend(R.prop('area')), areasAndBoundingRects)
+  const { x, y, width, height } = R.head(sorted).boundingRect
+
+  // I'm insetting by 2 pixels in both directions because
+  // the best contour tends to be just slightly too big.
+  const boundingBox = CALC.inset(x, y, width, height, 2, 2)
+
+  DC.drawBoundingBox(matCanvas, targetBoundingBox, 'blue')
+  DC.drawBoundingBox(matCanvas, boundingBox, 'red')
+
+  return boundingBox
+}
 
 // --------------------------------------------------------------------
 // ------------------------------ OpenCV ------------------------------
@@ -365,7 +381,7 @@ const initialiseCamera = async () => {
   const onSave = async () => {
     const dataUrlRaw = capturedImageElement.toDataURL('image/png')
     const responseRaw = await axios.post('/api/saveRawImage', { dataUrl: dataUrlRaw })
-    console.dir(responseRaw)
+    // log.info(`saveRawImage response: ${JSON.stringify(responseRaw)}`)
     messageArea.innerText = responseRaw.data
 
     const canvas = document.createElement('canvas')
@@ -374,8 +390,9 @@ const initialiseCamera = async () => {
     const imageTensor = I.normaliseGridImage(imageData)
     await tf.browser.toPixels(imageTensor, canvas)
     const dataUrlNormalised = canvas.toDataURL('image/png')
-    const responseNormalised = await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
-    console.dir(responseNormalised)
+    await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
+    // const responseNormalised = await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
+    // log.info(`saveNormalisedImage response: ${JSON.stringify(responseNormalised)}`)
   }
 
   const onClear = () => {
@@ -752,6 +769,12 @@ updateButtonStates()
 const main = async () => {
   drawGuides()
   initialiseCamera()
+  await new Promise(resolve => setTimeout(resolve, 3000))
+  const data = trainingData.concat(trainingData2).concat(validationData).concat(testData)
+  data.forEach(async item => {
+    const gridImageTensor = await D.loadImage(item.url)
+    findBoundingBox(gridImageTensor, item.boundingBox)
+  })
 }
 
 main()

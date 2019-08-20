@@ -1,6 +1,6 @@
 import * as R from 'ramda'
 
-const inset = (x, y, w, h, dx, dy) =>
+export const inset = (x, y, w, h, dx, dy) =>
   [x + dx, y + dy, w - 2 * dx, h - 2 * dy]
 
 export function* calculateGridSquares(boundingBox) {
