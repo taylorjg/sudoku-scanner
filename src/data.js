@@ -60,6 +60,23 @@ export const cropGridSquaresFromGridGivenBoundingBox = (gridImageTensor, puzzleI
 }
 
 // tf.tidy ?
+export const cropGridSquaresFromUnknownGrid = (gridImageTensor, boundingBox) => {
+  const gridSquares = Array.from(CALC.calculateGridSquares(boundingBox))
+  const image = tf.stack([gridImageTensor.div(255)])
+  const boxes = gridSquares.map(([x, y, w, h]) =>
+    [
+      normaliseY(y),
+      normaliseX(x),
+      normaliseY(y + h),
+      normaliseX(x + w)
+    ]
+  )
+  const boxInd = Array(boxes.length).fill(0)
+  const cropSize = [C.DIGIT_IMAGE_HEIGHT, C.DIGIT_IMAGE_WIDTH]
+  return tf.image.cropAndResize(image, boxes, boxInd, cropSize)
+}
+
+// tf.tidy ?
 export const cropGridSquaresFromGridCommon = (item, gridImageTensor, options = {}) => {
   const { puzzleId, boundingBox } = item
   const puzzle = puzzles.find(p => p.id === puzzleId)

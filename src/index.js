@@ -569,22 +569,44 @@ const onPredictGridBlanksDigits = async () => {
   }
 }
 
-// Predict bounding boxes then predict blanks then predict digits
-// Draw resultant images highlighting correct/incorrect predictions
-// NOTE: this function processes a single image captured from the webcam (as opposed to testData)
 const onPredictCapture = async () => {
-  // TODO:
-  // - normalise imageData
-  // - then, essentially do onPredictGridBlanksDigits but for a single imageTensor
-
-  // const imageTensor = I.normaliseGridImage(imageData)
-  // const input = tf.stack([imageTensor])
-  // const output = model.predict(input)
-  // const boundingBoxPrediction = output.arraySync()[0]
-  // log.info(`boundingBoxPrediction: ${JSON.stringify(boundingBoxPrediction)}`)
-  // drawImageTensor(imageTensor, undefined, boundingBoxPrediction)
-  // const body = document.querySelector('body')
-  // DC.drawGridImageTensor(body, imageTensor)
+  try {
+    SC.hideErrorPanel()
+    const parentElement = document.getElementById('predict-capture-results')
+    U.deleteChildren(parentElement)
+    const gridImageTensor = I.normaliseGridImage(imageData)
+    const boundingBox = await findBoundingBox(gridImageTensor)
+    const gridSquaresImageTensors =
+      tf.unstack(D.cropGridSquaresFromUnknownGrid(
+        gridImageTensor,
+        boundingBox))
+    const blanksPredictionsArray = models.blanks.model.predict(gridSquaresImageTensors).arraySync()
+    if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
+      throw new Error('Prediction of blanks vs digits too inaccurate to proceed.')
+    }
+    const zipped = gridSquaresImageTensors
+      .map((gridSquaresImageTensor, index) => ({
+        gridSquaresImageTensor,
+        isBlank: isBlank(blanksPredictionsArray[index]),
+        index
+      }))
+      .filter(({ isBlank }) => !isBlank)
+    const indexedDigitPredictions = zipped.map(item => {
+      // TODO: do them all at once ?
+      const inputs = tf.stack([item.gridSquaresImageTensor])
+      const outputs = models.digits.model.predict(inputs)
+      const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
+      return { digitPrediction, index: item.index }
+    })
+    const rows = toRows(indexedDigitPredictions)
+    const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
+    parentElement.appendChild(svgElement)
+    DS.drawInitialGrid(svgElement, rows)
+    updateButtonStates()
+  } catch (error) {
+    log.error(`[onPredictCapture] ${error.message}`)
+    SC.showErrorPanel(error.message)
+  }
 }
 
 const onSaveModel = name => async () => {
