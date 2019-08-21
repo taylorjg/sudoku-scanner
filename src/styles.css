@@ -80,3 +80,7 @@
   bottom: 0;
   transform: translateX(-50%);
 }
+
+#error-panel .close {
+  margin-left: 10px;
+}

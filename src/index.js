@@ -49,16 +49,11 @@ const getPredictionElement = (name, selector) =>
   document.querySelector(`#prediction-section-${name} ${selector}`)
 
 // http://emaraic.com/blog/realtime-sudoku-solver
-const findBoundingBox = async (parentElement, gridImageTensor, targetBoundingBox) => {
+const findBoundingBox = async gridImageTensor => {
 
   const tfCanvas = document.createElement('canvas')
   await tf.browser.toPixels(gridImageTensor, tfCanvas)
   const matInitial = cv.imread(tfCanvas)
-
-  const matCanvas = document.createElement('canvas')
-  matCanvas.setAttribute('class', 'grid-image')
-  parentElement.appendChild(matCanvas)
-  cv.imshow(matCanvas, matInitial)
 
   const matGrey = new cv.Mat(matInitial.size(), cv.CV_8UC1)
   cv.cvtColor(matInitial, matGrey, cv.COLOR_BGR2GRAY)
@@ -89,9 +84,6 @@ const findBoundingBox = async (parentElement, gridImageTensor, targetBoundingBox
   // I'm insetting by 2 pixels in both directions because
   // the best contour tends to be just slightly too big.
   const boundingBox = CALC.inset(x, y, width, height, 2, 2)
-
-  DC.drawBoundingBox(matCanvas, targetBoundingBox, 'blue')
-  DC.drawBoundingBox(matCanvas, boundingBox, 'red')
 
   return boundingBox
 }
@@ -257,7 +249,7 @@ const initialiseCamera = async () => {
     captureBtn.disabled = !playing
     saveBtn.disabled = !imageData
     clearBtn.disabled = !imageData
-    const allTrained = models.grid.trained && models.blanks.trained && models.digits.trained
+    const allTrained = models.blanks.trained && models.digits.trained
     predictCaptureBtn.disabled = !(allTrained && imageData)
   }
 
@@ -366,7 +358,11 @@ const onPredictGrid = async () => {
     U.deleteChildren(parentElement)
     const promises = testData.map(async item => {
       const gridImageTensor = await I.loadImage(item.url)
-      return findBoundingBox(parentElement, gridImageTensor, item.boundingBox)
+      const boundingBox = await findBoundingBox(gridImageTensor)
+      const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
+      DC.drawBoundingBox(canvas, item.boundingBox, 'blue')
+      DC.drawBoundingBox(canvas, boundingBox, 'red')
+      return boundingBox
     })
     await Promise.all(promises)
     updateButtonStates()
@@ -383,9 +379,11 @@ const DIGIT_PREDICTION_UPPER_LIMIT = 0 + BLANK_PREDICTION_ACCURACY
 const isBlankPredictionTooInaccurate = p =>
   p > DIGIT_PREDICTION_UPPER_LIMIT && p < BLANK_PREDICTION_LOWER_LIMIT
 
+const isBlank = p => p >= BLANK_PREDICTION_LOWER_LIMIT
+const isDigit = p => p <= DIGIT_PREDICTION_UPPER_LIMIT
+
 const isBlankPredictionCorrect = (label, prediction) =>
-  (label && prediction >= BLANK_PREDICTION_LOWER_LIMIT) ||
-  (!label && prediction <= DIGIT_PREDICTION_UPPER_LIMIT)
+  (label && isBlank(prediction)) || (!label && isDigit(prediction))
 
 // convincingly blank => 1
 // convincingly digit => 0
@@ -482,46 +480,68 @@ const toRows = indexedDigitPredictions =>
     value: digitPrediction
   }))
 
-// Using given bounding boxes, predict blanks then predict digits
+const predictBlanksDigitsCommon = async (item, gridImageTensor, boundingBox, parentElement) => {
+
+  const { xs, gridSquaresWithDetails } = D.cropGridSquaresFromGridGivenBoundingBox(
+    gridImageTensor,
+    item.puzzleId,
+    boundingBox)
+
+  parentElement.appendChild(document.createElement('br'))
+
+  const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
+  const ctx = canvas.getContext('2d')
+
+  const blanksPredictionsArray = models.blanks.model.predict(xs).arraySync()
+
+  if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
+    DC.drawBigRedCross(ctx, boundingBox)
+    return
+  }
+
+  const [blanks, digits] = R.partition(({ index }) =>
+    isBlank(blanksPredictionsArray[index]), gridSquaresWithDetails)
+
+  for (const { isBlank, gridSquare } of blanks) {
+    // const colour = isBlank ? 'green' : 'red'
+    // DC.drawGridSquare(gridSquare, colour)
+    ctx.strokeStyle = isBlank ? 'green' : 'red'
+    ctx.lineWidth = 1
+    ctx.strokeRect(...gridSquare)
+  }
+
+  const xsarr = tf.unstack(xs)
+  const indexedDigitPredictions = digits.map(({ index, digit, gridSquare }) => {
+    const x = xsarr[index]
+    const inputs = tf.stack([x])
+    const outputs = models.digits.model.predict(inputs)
+    const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
+    // const colour = digitPrediction === digit ? 'green' : 'red'
+    // DC.drawGridSquare(gridSquare, colour)
+    ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
+    ctx.lineWidth = 1
+    ctx.strokeRect(...gridSquare)
+    return { digitPrediction, index }
+  })
+
+  // TODO: extract a function to draw a Sudoku puzzle using SVG given 'indexedDigitPredictions' and 'parentElement'
+  const rows = toRows(indexedDigitPredictions)
+  const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
+  parentElement.appendChild(svgElement)
+  DS.drawInitialGrid(svgElement, rows)
+}
+
+// Given bounding boxes, predict blanks then predict digits
 // Draw resultant images highlighting correct/incorrect predictions
 const onPredictBlanksDigits = async () => {
   try {
     SC.hideErrorPanel()
-    const groups = await D.loadGridSquaresGrouped(testData)
     const parentElement = getPredictionElement('blanks-digits', '.results')
     U.deleteChildren(parentElement)
-    for (const group of groups) {
-      const { xs, gridImageTensor, gridSquaresWithDetails } = group
-      parentElement.appendChild(document.createElement('br'))
-      const canvas = await DC.drawGridImageTensor(parentElement, gridImageTensor)
-      const ctx = canvas.getContext('2d')
-      const blanksPredictionsArray = models.blanks.model.predict(xs).arraySync()
-      if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
-        DC.drawBigRedCross(ctx, group.item.boundingBox)
-        continue
-      }
-      const [blanks, digits] = R.partition(({ index }) =>
-        blanksPredictionsArray[index] >= BLANK_PREDICTION_LOWER_LIMIT, gridSquaresWithDetails)
-      for (const { isBlank, gridSquare } of blanks) {
-        ctx.strokeStyle = isBlank ? 'green' : 'red'
-        ctx.lineWidth = 1
-        ctx.strokeRect(...gridSquare)
-      }
-      const xsarr = tf.unstack(xs)
-      const indexedDigitPredictions = digits.map(({ index, digit, gridSquare }) => {
-        const x = xsarr[index]
-        const inputs = tf.stack([x])
-        const outputs = models.digits.model.predict(inputs)
-        const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
-        ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
-        ctx.lineWidth = 1
-        ctx.strokeRect(...gridSquare)
-        return { digitPrediction, index }
-      })
-      const rows = toRows(indexedDigitPredictions)
-      const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
-      parentElement.appendChild(svgElement)
-      DS.drawInitialGrid(svgElement, rows)
+    for (const item of testData) {
+      const gridImageTensor = await I.loadImage(item.url)
+      const boundingBox = item.boundingBox
+      await predictBlanksDigitsCommon(item, gridImageTensor, boundingBox, parentElement)
     }
     updateButtonStates()
   } catch (error) {
@@ -530,12 +550,23 @@ const onPredictBlanksDigits = async () => {
   }
 }
 
-// Predict bounding boxes then predict blanks then predict digits
+// Find bounding boxes then predict blanks then predict digits
 // Draw resultant images highlighting correct/incorrect predictions
 const onPredictGridBlanksDigits = async () => {
-  // TODO:
-  // - use model.grid.model to predict the bounding boxes
-  // - then, essentially do onPredictBlanksDigits
+  try {
+    SC.hideErrorPanel()
+    const parentElement = getPredictionElement('grid-blanks-digits', '.results')
+    U.deleteChildren(parentElement)
+    for (const item of testData) {
+      const gridImageTensor = await I.loadImage(item.url)
+      const boundingBox = await findBoundingBox(gridImageTensor)
+      await predictBlanksDigitsCommon(item, gridImageTensor, boundingBox, parentElement)
+    }
+    updateButtonStates()
+  } catch (error) {
+    log.error(`[onPredictGridBlanksDigits] ${error.message}`)
+    SC.showErrorPanel(error.message)
+  }
 }
 
 // Predict bounding boxes then predict blanks then predict digits

@@ -7,6 +7,7 @@ import * as I from './image'
 import * as U from './utils'
 import puzzles from '../data/puzzles.json'
 
+// tf.tidy ?
 export const loadGridData = async (data, parentElement) => {
   U.deleteChildren(parentElement)
   const targets = data.map(item => item.boundingBox)
@@ -22,6 +23,40 @@ export const loadGridData = async (data, parentElement) => {
   const xs = tf.stack(imageTensors)
   const ys = tf.tensor2d(targets)
   return { xs, ys }
+}
+
+const normaliseX = x => x / (C.GRID_IMAGE_WIDTH - 1)
+const normaliseY = y => y / (C.GRID_IMAGE_HEIGHT - 1)
+
+// tf.tidy ?
+export const cropGridSquaresFromGridGivenBoundingBox = (gridImageTensor, puzzleId, boundingBox, options = {}) => {
+  const puzzle = puzzles.find(R.propEq('id', puzzleId))
+  const gridSquares = Array.from(CALC.calculateGridSquares(boundingBox))
+  const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))
+  const blanksFilter = options.removeBlanks ? ({ isBlank }) => !isBlank : R.T
+  const digitsFilter = options.removeDigits ? ({ isBlank }) => isBlank : R.T
+  const gridSquaresWithDetails = flattenedInitialValues
+    .map((ch, index) => ({
+      isBlank: ch === ' ',
+      digit: Number(ch),
+      gridSquare: gridSquares[index],
+      index
+    }))
+    .filter(blanksFilter)
+    .filter(digitsFilter)
+  const image = tf.stack([gridImageTensor.div(255)])
+  const boxes = gridSquaresWithDetails.map(({ gridSquare: [x, y, w, h] }) =>
+    [
+      normaliseY(y),
+      normaliseX(x),
+      normaliseY(y + h),
+      normaliseX(x + w)
+    ]
+  )
+  const boxInd = Array(boxes.length).fill(0)
+  const cropSize = [C.DIGIT_IMAGE_HEIGHT, C.DIGIT_IMAGE_WIDTH]
+  const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
+  return { xs, gridSquaresWithDetails }
 }
 
 // tf.tidy ?
@@ -42,8 +77,6 @@ export const cropGridSquaresFromGridCommon = (item, gridImageTensor, options = {
     .filter(blanksFilter)
     .filter(digitsFilter)
   const image = tf.stack([gridImageTensor.div(255)])
-  const normaliseX = x => x / (C.GRID_IMAGE_WIDTH - 1)
-  const normaliseY = y => y / (C.GRID_IMAGE_HEIGHT - 1)
   const boxes = gridSquaresWithDetails.map(({ gridSquare: [x, y, w, h] }) =>
     [
       normaliseY(y),
@@ -55,26 +88,26 @@ export const cropGridSquaresFromGridCommon = (item, gridImageTensor, options = {
   const boxInd = Array(boxes.length).fill(0)
   const cropSize = [C.DIGIT_IMAGE_HEIGHT, C.DIGIT_IMAGE_WIDTH]
   const xs = tf.image.cropAndResize(image, boxes, boxInd, cropSize)
-  return { xs, puzzle, gridSquaresWithDetails }
+  return { xs, gridSquaresWithDetails }
 }
 
 // tf.tidy ?
 // ys: one-hots
 export const cropDigitsFromGrid = (item, gridImageTensor) => {
   const options = { removeBlanks: true }
-  const { xs, puzzle, gridSquaresWithDetails } = cropGridSquaresFromGridCommon(item, gridImageTensor, options)
+  const { xs, gridSquaresWithDetails } = cropGridSquaresFromGridCommon(item, gridImageTensor, options)
   const oneBasedDigits = R.pluck('digit', gridSquaresWithDetails)
   const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
   const ys = tf.oneHot(zeroBasedDigits, 9)
-  return { xs, ys, item, puzzle, gridImageTensor, gridSquaresWithDetails }
+  return { xs, ys, item, gridImageTensor, gridSquaresWithDetails }
 }
 
 // tf.tidy ?
 // ys: 1 (blank) or 0 (digit)
 export const cropGridSquaresFromGrid = (item, gridImageTensor) => {
-  const { xs, puzzle, gridSquaresWithDetails } = cropGridSquaresFromGridCommon(item, gridImageTensor)
+  const { xs, gridSquaresWithDetails } = cropGridSquaresFromGridCommon(item, gridImageTensor)
   const ys = tf.tensor1d(gridSquaresWithDetails.map(({ isBlank }) => isBlank ? 1 : 0))
-  return { xs, ys, item, puzzle, gridImageTensor, gridSquaresWithDetails }
+  return { xs, ys, item, gridImageTensor, gridSquaresWithDetails }
 }
 
 // tf.tidy ?

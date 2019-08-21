@@ -3,20 +3,21 @@ import * as log from 'loglevel'
 import * as R from 'ramda'
 import * as C from './constants'
 
-// key: url, value: tensor3d
-const GRID_IMAGE_CACHE = new Map()
+// key: url, value: tf.tensor3D
+const IMAGE_CACHE = new Map()
 
 export const loadImage = async url => {
-  const existingImageTensor = GRID_IMAGE_CACHE.get(url)
+  const existingImageTensor = IMAGE_CACHE.get(url)
   if (existingImageTensor) return existingImageTensor
-  const promise = new Promise(resolve => {
+  const promise = new Promise((resolve, reject) => {
     log.info(`Loading ${url}`)
     const image = new Image()
-    image.onload = () => resolve(tf.browser.fromPixels(image, C.GRID_IMAGE_CHANNELS))
     image.src = url
+    image.onload = () => resolve(tf.browser.fromPixels(image, C.GRID_IMAGE_CHANNELS))
+    image.onerror = () => reject(new Error(`Failed to load image, ${url}.`))
   })
   const imageTensor = await promise
-  GRID_IMAGE_CACHE.set(url, imageTensor)
+  IMAGE_CACHE.set(url, imageTensor)
   return imageTensor
 }
 
