@@ -576,15 +576,15 @@ const onPredictCapture = async () => {
     U.deleteChildren(parentElement)
     const gridImageTensor = I.normaliseGridImage(imageData)
     const boundingBox = await findBoundingBox(gridImageTensor)
-    const gridSquaresImageTensors =
-      tf.unstack(D.cropGridSquaresFromUnknownGrid(
-        gridImageTensor,
-        boundingBox))
+    const gridSquaresImageTensors = D.cropGridSquaresFromUnknownGrid(
+      gridImageTensor,
+      boundingBox)
+    const gridSquaresImageTensorsArray = tf.unstack(gridSquaresImageTensors)
     const blanksPredictionsArray = models.blanks.model.predict(gridSquaresImageTensors).arraySync()
     if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
       throw new Error('Prediction of blanks vs digits too inaccurate to proceed.')
     }
-    const zipped = gridSquaresImageTensors
+    const zipped = gridSquaresImageTensorsArray
       .map((gridSquaresImageTensor, index) => ({
         gridSquaresImageTensor,
         isBlank: isBlank(blanksPredictionsArray[index]),
