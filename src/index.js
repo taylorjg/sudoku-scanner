@@ -568,36 +568,42 @@ const onPredictGridBlanksDigits = async () => {
 
 const onPredictCapture = async () => {
   try {
+    performance.clearMarks()
+    performance.mark('predict capture start')
     SC.hideErrorPanel()
     const parentElement = document.getElementById('predict-capture-results')
     U.deleteChildren(parentElement)
     const gridImageTensor = I.normaliseGridImage(imageData)
+    performance.mark('find bounding box')
     const boundingBox = await findBoundingBox(gridImageTensor)
-    const gridSquaresImageTensors = D.cropGridSquaresFromUnknownGrid(
+    const gridSquareImageTensors = D.cropGridSquaresFromUnknownGrid(
       gridImageTensor,
       boundingBox)
-    const gridSquaresImageTensorsArray = tf.unstack(gridSquaresImageTensors)
-    const blanksPredictionsArray = models.blanks.model.predict(gridSquaresImageTensors).arraySync()
+    const gridSquareImageTensorsArray = tf.unstack(gridSquareImageTensors)
+    performance.mark('distinguish blanks vs digits')
+    const blanksPredictionsArray = models.blanks.model.predict(gridSquareImageTensors).arraySync()
     if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
       throw new Error('Prediction of blanks vs digits too inaccurate to proceed.')
     }
-    const zipped = gridSquaresImageTensorsArray
-      .map((gridSquaresImageTensor, index) => ({
-        gridSquaresImageTensor,
-        isBlank: isBlank(blanksPredictionsArray[index]),
-        index
-      }))
-      .filter(({ isBlank }) => !isBlank)
-    const indexedDigitPredictions = zipped.map(item => {
-      // TODO: Run prediction on all digits at once ?
-      //       We would need to take care over indices.
-      const inputs = tf.stack([item.gridSquaresImageTensor])
-      const outputs = models.digits.model.predict(inputs)
-      const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
-      return { digitPrediction, index: item.index }
-    })
+    const indexedDigitImageTensorsArray = gridSquareImageTensorsArray
+      .map((digitImageTensor, index) => ({ digitImageTensor, index }))
+      .filter(({ index }) => !isBlank(blanksPredictionsArray[index]))
+    // TODO: it would be clearer to use a Map from digit indices to grid square indices
+    const digitImageTensorsArray = R.pluck('digitImageTensor', indexedDigitImageTensorsArray)
+    const inputs = tf.stack(digitImageTensorsArray)
+    performance.mark('recognise digits')
+    const outputs = models.digits.model.predict(inputs)
+    const digitPredictions = outputs.argMax(1).arraySync().map(R.inc)
+    const indexedDigitPredictions = digitPredictions.map((digitPrediction, index) => ({
+      digitPrediction,
+      index: indexedDigitImageTensorsArray[index].index
+    }))
     drawSudokuGrid(parentElement, indexedDigitPredictions)
     updateButtonStates()
+    performance.mark('predict capture end')
+    const marks = performance.getEntriesByType('mark')
+    marks.forEach(mark => log.info(JSON.stringify(mark)))
+    performance.clearMarks()
   } catch (error) {
     log.error(`[onPredictCapture] ${error.message}`)
     SC.showErrorPanel(error.message)
