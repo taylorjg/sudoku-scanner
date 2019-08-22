@@ -480,9 +480,16 @@ const toRows = indexedDigitPredictions =>
     value: digitPrediction
   }))
 
+const drawSudokuGrid = (parentElement, indexedDigitPredictions) => {
+  const rows = toRows(indexedDigitPredictions)
+  const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
+  parentElement.appendChild(svgElement)
+  DS.drawInitialGrid(svgElement, rows)
+}
+
 const predictBlanksDigitsCommon = async (item, gridImageTensor, boundingBox, parentElement) => {
 
-  const { xs, gridSquaresWithDetails } = D.cropGridSquaresFromGridGivenBoundingBox(
+  const { xs, gridSquaresWithDetails } = D.cropGridSquaresFromKnownGrid(
     gridImageTensor,
     item.puzzleId,
     boundingBox)
@@ -503,11 +510,8 @@ const predictBlanksDigitsCommon = async (item, gridImageTensor, boundingBox, par
     isBlank(blanksPredictionsArray[index]), gridSquaresWithDetails)
 
   for (const { isBlank, gridSquare } of blanks) {
-    // const colour = isBlank ? 'green' : 'red'
-    // DC.drawGridSquare(gridSquare, colour)
-    ctx.strokeStyle = isBlank ? 'green' : 'red'
-    ctx.lineWidth = 1
-    ctx.strokeRect(...gridSquare)
+    const colour = isBlank ? 'green' : 'red'
+    DC.drawGridSquare(canvas, gridSquare, colour)
   }
 
   const xsarr = tf.unstack(xs)
@@ -516,19 +520,12 @@ const predictBlanksDigitsCommon = async (item, gridImageTensor, boundingBox, par
     const inputs = tf.stack([x])
     const outputs = models.digits.model.predict(inputs)
     const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
-    // const colour = digitPrediction === digit ? 'green' : 'red'
-    // DC.drawGridSquare(gridSquare, colour)
-    ctx.strokeStyle = digitPrediction === digit ? 'green' : 'red'
-    ctx.lineWidth = 1
-    ctx.strokeRect(...gridSquare)
+    const colour = digitPrediction === digit ? 'green' : 'red'
+    DC.drawGridSquare(canvas, gridSquare, colour)
     return { digitPrediction, index }
   })
 
-  // TODO: extract a function to draw a Sudoku puzzle using SVG given 'indexedDigitPredictions' and 'parentElement'
-  const rows = toRows(indexedDigitPredictions)
-  const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
-  parentElement.appendChild(svgElement)
-  DS.drawInitialGrid(svgElement, rows)
+  drawSudokuGrid(parentElement, indexedDigitPredictions)
 }
 
 // Given bounding boxes, predict blanks then predict digits
@@ -592,16 +589,14 @@ const onPredictCapture = async () => {
       }))
       .filter(({ isBlank }) => !isBlank)
     const indexedDigitPredictions = zipped.map(item => {
-      // TODO: do them all at once ?
+      // TODO: Run prediction on all digits at once ?
+      //       We would need to take care over indices.
       const inputs = tf.stack([item.gridSquaresImageTensor])
       const outputs = models.digits.model.predict(inputs)
       const digitPrediction = outputs.argMax(1).arraySync()[0] + 1
       return { digitPrediction, index: item.index }
     })
-    const rows = toRows(indexedDigitPredictions)
-    const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
-    parentElement.appendChild(svgElement)
-    DS.drawInitialGrid(svgElement, rows)
+    drawSudokuGrid(parentElement, indexedDigitPredictions)
     updateButtonStates()
   } catch (error) {
     log.error(`[onPredictCapture] ${error.message}`)

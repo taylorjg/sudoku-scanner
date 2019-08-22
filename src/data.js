@@ -29,7 +29,7 @@ const normaliseX = x => x / (C.GRID_IMAGE_WIDTH - 1)
 const normaliseY = y => y / (C.GRID_IMAGE_HEIGHT - 1)
 
 // tf.tidy ?
-export const cropGridSquaresFromGridGivenBoundingBox = (gridImageTensor, puzzleId, boundingBox, options = {}) => {
+export const cropGridSquaresFromKnownGrid = (gridImageTensor, puzzleId, boundingBox, options = {}) => {
   const puzzle = puzzles.find(R.propEq('id', puzzleId))
   const gridSquares = Array.from(CALC.calculateGridSquares(boundingBox))
   const flattenedInitialValues = Array.from(puzzle.initialValues.join(''))

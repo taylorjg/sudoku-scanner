@@ -1,6 +1,6 @@
 {
   "name": "sudoku-scanner",
-  "version": "0.0.34",
+  "version": "0.0.35",
   "description": "Use deep learning to recognise a Sudoku puzzle from a scanned image",
   "main": "index.js",
   "scripts": {

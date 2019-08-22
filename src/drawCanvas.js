@@ -32,6 +32,13 @@ export const drawCorners = (canvas, corners, colour) => {
   })
 }
 
+export const drawGridSquare = (canvas, gridSquare, colour) => {
+  const ctx = canvas.getContext('2d')
+  ctx.strokeStyle = colour
+  ctx.lineWidth = 1
+  ctx.strokeRect(...gridSquare)
+}
+
 export const drawGridSquares = (canvas, boundingBox, colour) => {
   const ctx = canvas.getContext('2d')
   for (const gridSquare of CALC.calculateGridSquares(boundingBox)) {
