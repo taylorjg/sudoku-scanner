@@ -227,6 +227,21 @@ const drawGuides = () => {
   svg.appendChild(createVideoGuide(`M${wRect - wInset - wArm},${hRect - hInset} h${wArm} v${-hArm}`))
 }
 
+const WEBCAM_MODE_VIDEO = Symbol('WEBCAM_MODE_VIDEO')
+const WEBCAM_MODE_CAPTURE = Symbol('WEBCAM_MODE_CAPTURE')
+const WEBCAM_MODE_SOLUTION = Symbol('WEBCAM_MODE_SOLUTION')
+
+const setWebcamMode = mode => {
+  const videoElement = document.getElementById('video')
+  const videoGuidesElement = document.getElementById('video-guides')
+  const capturedImageElement = document.getElementById('captured-image')
+  const predictCaptureResults = document.getElementById('predict-capture-results')
+  videoElement.style.display = mode === WEBCAM_MODE_VIDEO ? 'inline-block' : 'none'
+  videoGuidesElement.style.display = mode === WEBCAM_MODE_VIDEO ? 'inline-block' : 'none'
+  capturedImageElement.style.display = mode === WEBCAM_MODE_CAPTURE ? 'inline-block' : 'none'
+  predictCaptureResults.style.display = mode === WEBCAM_MODE_SOLUTION ? 'inline-block' : 'none'
+}
+
 const initialiseCamera = async () => {
 
   const videoElement = document.getElementById('video')
@@ -241,6 +256,7 @@ const initialiseCamera = async () => {
   const saveBtn = document.getElementById('save-btn')
   const clearBtn = document.getElementById('clear-btn')
   const messageArea = document.getElementById('message-area')
+  const predictCaptureResults = document.getElementById('predict-capture-results')
 
   const updateButtonState = () => {
     const playing = !!videoElement.srcObject
@@ -265,6 +281,7 @@ const initialiseCamera = async () => {
       videoElement.srcObject = mediaStream
       videoElement.play()
       updateButtonState()
+      setWebcamMode(WEBCAM_MODE_VIDEO)
     }
   }
 
@@ -282,6 +299,7 @@ const initialiseCamera = async () => {
     const h = capturedImageElementContext.canvas.height
     imageData = capturedImageElementContext.getImageData(0, 0, w, h)
     onStop()
+    setWebcamMode(WEBCAM_MODE_CAPTURE)
   }
 
   const onSave = async () => {
@@ -303,9 +321,11 @@ const initialiseCamera = async () => {
 
   const onClear = () => {
     capturedImageElementContext.clearRect(0, 0, capturedImageElement.width, capturedImageElement.height)
+    U.deleteChildren(predictCaptureResults)
     imageData = undefined
     messageArea.innerText = ''
     updateButtonState()
+    setWebcamMode(WEBCAM_MODE_VIDEO)
   }
 
   startBtn.addEventListener('click', onStart)
@@ -315,6 +335,7 @@ const initialiseCamera = async () => {
   clearBtn.addEventListener('click', onClear)
 
   updateButtonState()
+  setWebcamMode(WEBCAM_MODE_VIDEO)
 }
 
 const onTrainBlanks = async () => {
@@ -571,8 +592,6 @@ const onPredictCapture = async () => {
     performance.clearMarks()
     performance.mark('predict capture start')
     SC.hideErrorPanel()
-    const parentElement = document.getElementById('predict-capture-results')
-    U.deleteChildren(parentElement)
     const gridImageTensor = I.normaliseGridImage(imageData)
     performance.mark('find bounding box')
     const boundingBox = await findBoundingBox(gridImageTensor)
@@ -598,11 +617,16 @@ const onPredictCapture = async () => {
       digitPrediction,
       index: indexedDigitImageTensorsArray[index].index
     }))
+    const parentElement = document.getElementById('predict-capture-results')
+    U.deleteChildren(parentElement)
     drawSudokuGrid(parentElement, indexedDigitPredictions)
     updateButtonStates()
+    setWebcamMode(WEBCAM_MODE_SOLUTION)
     performance.mark('predict capture end')
     const marks = performance.getEntriesByType('mark')
     marks.forEach(mark => log.info(JSON.stringify(mark)))
+    const messageArea = document.getElementById('message-area')
+    messageArea.innerText = JSON.stringify(marks)
     performance.clearMarks()
   } catch (error) {
     log.error(`[onPredictCapture] ${error.message}`)
