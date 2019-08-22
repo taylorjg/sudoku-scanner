@@ -626,7 +626,7 @@ const onPredictCapture = async () => {
     const marks = performance.getEntriesByType('mark')
     marks.forEach(mark => log.info(JSON.stringify(mark)))
     const messageArea = document.getElementById('message-area')
-    messageArea.innerText = JSON.stringify(marks.map(R.dissoc('duration')), null, 2)
+    messageArea.innerText = JSON.stringify(marks.map(mark => R.pick(['name', 'startTime'], mark)), null, 2)
     performance.clearMarks()
   } catch (error) {
     log.error(`[onPredictCapture] ${error.message}`)
