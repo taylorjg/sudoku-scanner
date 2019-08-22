@@ -12,6 +12,7 @@ import * as CALC from './/calculations'
 import * as DS from './drawSvg'
 import * as SC from './simpleComponents'
 import * as U from './utils'
+import { solve } from '../utils/logic'
 
 import trainingData from '../data/training-data.json'
 // import trainingData2 from '../data/training-data-2.json'
@@ -506,6 +507,16 @@ const drawSudokuGrid = (parentElement, indexedDigitPredictions) => {
   const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
   parentElement.appendChild(svgElement)
   DS.drawInitialGrid(svgElement, rows)
+  const allChars = R.range(0, 81).map(index => {
+    const indexedDigitPrediction = indexedDigitPredictions.find(R.propEq('index', index))
+    return indexedDigitPrediction ? indexedDigitPrediction.digitPrediction.toString() : ' '
+  })
+  const rowsOfChars = R.splitEvery(9, allChars)
+  const initialValues = rowsOfChars.map(R.join(''))
+  const solutions = solve(initialValues)
+  if (solutions.length === 1) {
+    DS.drawSolution(svgElement, solutions[0])
+  }
 }
 
 const predictBlanksDigitsCommon = async (item, gridImageTensor, boundingBox, parentElement) => {
