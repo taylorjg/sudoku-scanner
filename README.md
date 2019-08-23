@@ -31,7 +31,9 @@ _TODO: describe plans to have another go at training a model to find the boundin
 
 * Open https://sudoku-scanner.herokuapp.com/
 * Click 'Load' under 'Training - Blanks' to load a pre-trained model to distinguish between blank grid squares and digits
+  * Or, click 'Train' to train a new model
 * Click 'Load' under 'Training - Digits' to load a pre-trained model to recognise digits 1-9
+  * Or, click 'Train' to train a new model
 * Click 'Start Camera'
 * Click 'Capture Camera' to take a photo of a Sudoku puzzle from a newpaper or similar
  * Try to get the puzzle grid to:

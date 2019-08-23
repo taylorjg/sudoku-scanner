@@ -14,3 +14,6 @@ export const formatSectionName =
     R.map(pascalCase),
     R.join('/')
   )
+
+  export const flattenInitialValues = R.compose(R.unnest, R.map(Array.from))
+  

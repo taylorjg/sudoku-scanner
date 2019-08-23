@@ -1,6 +1,6 @@
 const log = require('loglevel')
 const puzzles = require('../data/puzzles.json')
-const { solve } = require('./logic')
+const { solve } = require('./solving')
 
 const validatePuzzle = puzzle => {
   log.info(`Validating ${puzzle.description}`)
