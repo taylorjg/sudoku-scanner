@@ -155,7 +155,7 @@ const trainBlanks = async model => {
 
   const combinedData = trainingData.concat(validationData)
   tf.util.shuffle(combinedData)
-  const { xs, ys } = await D.loadGridSquaresFlat(combinedData)
+  const { xs, ys } = await D.loadGridSquaresFromKnownGrids(combinedData)
 
   model.compile({
     optimizer: 'rmsprop',
@@ -185,7 +185,7 @@ const trainDigits = async model => {
 
   const combinedData = trainingData.concat(validationData)
   tf.util.shuffle(combinedData)
-  const { xs, ys } = await D.loadDigitsFlat(combinedData)
+  const { xs, ys } = await D.loadDigitsFromKnownGrids(combinedData)
 
   model.compile({
     optimizer: 'rmsprop',
@@ -422,9 +422,9 @@ const onPredictBlanks = async () => {
     U.deleteChildren(parentElement)
     const yss = []
     const predictionsArrays = []
-    const groups = await D.loadGridSquaresGrouped(testData)
-    for (const group of groups) {
-      const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
+    for (const item of testData) {
+      const gridImageTensor = await I.loadImage(item.url)
+      const { xs, ys, gridSquaresWithDetails } = D.cropGridSquaresFromGrid(item, gridImageTensor)
       const labelsArray = ys.arraySync()
       const outputs = models.blanks.model.predict(xs)
       const predictionsArray = outputs.arraySync()
@@ -463,9 +463,9 @@ const onPredictDigits = async () => {
     U.deleteChildren(parentElement)
     const yss = []
     const outputsArray = []
-    const groups = await D.loadDigitsGrouped(testData)
-    for (const group of groups) {
-      const { xs, ys, gridImageTensor, gridSquaresWithDetails } = group
+    for (const item of testData) {
+      const gridImageTensor = await I.loadImage(item.url)
+      const { xs, ys, gridSquaresWithDetails } = D.cropDigitsFromGrid(item, gridImageTensor)
       const labelsArray = ys.argMax(1).arraySync()
       const outputs = models.digits.model.predict(xs)
       const predictionsArray = outputs.argMax(1).arraySync()

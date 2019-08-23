@@ -17,10 +17,7 @@ const normaliseForGridCropping = ([x, y, w, h]) => {
   ]
 }
 
-// tf.tidy ?
-// options:
-// - removeBlanks
-// - createLabels
+// TODO: tf.tidy / tf.dispose
 export const cropGridSquaresFromKnownGrid = (gridImageTensor, puzzleId, boundingBox, options = {}) => {
   const puzzle = puzzles.find(R.propEq('id', puzzleId))
   const gridSquares = CALC.calculateGridSquares(boundingBox)
@@ -44,7 +41,7 @@ export const cropGridSquaresFromKnownGrid = (gridImageTensor, puzzleId, bounding
   return { xs, ...maybeLabels, gridImageTensor, gridSquaresWithDetails }
 }
 
-// tf.tidy ?
+// TODO: tf.tidy / tf.dispose
 export const cropGridSquaresFromUnknownGrid = (gridImageTensor, boundingBox) => {
   const gridSquares = CALC.calculateGridSquares(boundingBox)
   const image = tf.stack(R.of(gridImageTensor.div(255)))
@@ -54,27 +51,16 @@ export const cropGridSquaresFromUnknownGrid = (gridImageTensor, boundingBox) => 
   return tf.image.cropAndResize(image, boxes, boxInd, cropSize)
 }
 
-export const createOneHotDigitLabels = gridSquaresWithDetails => {
+const createOneHotDigitLabels = gridSquaresWithDetails => {
   const oneBasedDigits = R.pluck('digit', gridSquaresWithDetails)
   const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
   return tf.oneHot(zeroBasedDigits, 9)
 }
 
-export const createBlankOrNotBlankLabels = gridSquaresWithDetails =>
+const createBlankOrNotBlankLabels = gridSquaresWithDetails =>
   tf.tensor1d(gridSquaresWithDetails.map(({ isBlank }) => isBlank ? 1 : 0))
 
-const cropDigitsFromGrid = (item, gridImageTensor) =>
-  cropGridSquaresFromKnownGrid(
-    gridImageTensor,
-    item.puzzleId,
-    item.boundingBox,
-    {
-      removeBlanks: true,
-      createLabels: createOneHotDigitLabels
-    }
-  )
-
-const cropGridSquaresFromGrid = (item, gridImageTensor) =>
+export const cropGridSquaresFromGrid = (item, gridImageTensor) =>
   cropGridSquaresFromKnownGrid(
     gridImageTensor,
     item.puzzleId,
@@ -85,29 +71,50 @@ const cropGridSquaresFromGrid = (item, gridImageTensor) =>
     }
   )
 
-// tf.tidy ?
-export const loadCroppedDataGrouped = async (data, cropFunction) => {
+export const cropDigitsFromGrid = (item, gridImageTensor) =>
+  cropGridSquaresFromKnownGrid(
+    gridImageTensor,
+    item.puzzleId,
+    item.boundingBox,
+    {
+      removeBlanks: true,
+      createLabels: createOneHotDigitLabels
+    }
+  )
+
+// TODO: tf.tidy / tf.dispose
+const loadKnownGridsAndCropGridSquares = async (data, options) => {
   const urls = R.pluck('url', data)
   const promises = urls.map(I.loadImage)
   const gridImageTensorsArray = await Promise.all(promises)
-  return gridImageTensorsArray.map((gridImageTensor, index) => {
+  const perGridResults = gridImageTensorsArray.map((gridImageTensor, index) => {
     const item = data[index]
-    return cropFunction(item, gridImageTensor)
+    return cropGridSquaresFromKnownGrid(
+      gridImageTensor,
+      item.puzzleId,
+      item.boundingBox,
+      options
+    )
   })
-}
-
-export const loadGridSquaresGrouped = async data => loadCroppedDataGrouped(data, cropGridSquaresFromGrid)
-export const loadDigitsGrouped = async data => loadCroppedDataGrouped(data, cropDigitsFromGrid)
-
-// tf.tidy ?
-const flattenGroupedData = async (data, loader) => {
-  const groupedData = await loader(data)
-  const xss = R.pluck('xs', groupedData)
-  const yss = R.pluck('ys', groupedData)
+  const xss = R.pluck('xs', perGridResults)
+  const yss = R.pluck('ys', perGridResults)
   const xs = tf.concat(xss)
   const ys = tf.concat(yss)
   return { xs, ys }
 }
 
-export const loadDigitsFlat = data => flattenGroupedData(data, loadDigitsGrouped)
-export const loadGridSquaresFlat = data => flattenGroupedData(data, loadGridSquaresGrouped)
+export const loadGridSquaresFromKnownGrids = data =>
+  loadKnownGridsAndCropGridSquares(
+    data,
+    {
+      removeBlanks: false,
+      createLabels: createBlankOrNotBlankLabels
+    })
+
+export const loadDigitsFromKnownGrids = data =>
+  loadKnownGridsAndCropGridSquares(
+    data,
+    {
+      removeBlanks: true,
+      createLabels: createOneHotDigitLabels
+    })
