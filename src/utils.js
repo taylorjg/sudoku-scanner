@@ -1,4 +1,5 @@
 import * as R from 'ramda'
+import * as C from './constants'
 
 export const deleteChildren = element => {
   while (element.firstChild) {
@@ -15,5 +16,4 @@ export const formatSectionName =
     R.join('/')
   )
 
-  export const flattenInitialValues = R.compose(R.unnest, R.map(Array.from))
-  
+export const stringFromChars = R.join(C.EMPTY)

@@ -7,15 +7,15 @@ import axios from 'axios'
 import * as C from './constants'
 import * as D from './data'
 import * as I from './image'
+import * as P from './puzzle'
+import * as U from './utils'
 import * as DC from './drawCanvas'
 import * as CALC from './/calculations'
 import * as DS from './drawSvg'
 import * as SC from './simpleComponents'
-import * as U from './utils'
 import { solve } from '../utils/solving'
 
 import trainingData from '../data/training-data.json'
-// import trainingData2 from '../data/training-data-2.json'
 import validationData from '../data/validation-data.json'
 import testData from '../data/test-data.json'
 
@@ -304,20 +304,32 @@ const initialiseCamera = async () => {
   }
 
   const onSave = async () => {
-    const dataUrlRaw = capturedImageElement.toDataURL('image/png')
-    const responseRaw = await axios.post('/api/saveRawImage', { dataUrl: dataUrlRaw })
-    // log.info(`saveRawImage response: ${JSON.stringify(responseRaw)}`)
-    messageArea.innerText = responseRaw.data
 
-    const canvas = document.createElement('canvas')
-    canvas.width = C.GRID_IMAGE_WIDTH
-    canvas.height = C.GRID_IMAGE_HEIGHT
-    const imageTensor = I.normaliseGridImage(imageData)
-    await tf.browser.toPixels(imageTensor, canvas)
-    const dataUrlNormalised = canvas.toDataURL('image/png')
-    await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
-    // const responseNormalised = await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
-    // log.info(`saveNormalisedImage response: ${JSON.stringify(responseNormalised)}`)
+    SC.hideErrorPanel()
+
+    try {
+      const dataUrlRaw = capturedImageElement.toDataURL('image/png')
+      log.info(`Saving raw image...`)
+      const responseRaw = await axios.post('/api/saveRawImage', { dataUrl: dataUrlRaw })
+      messageArea.innerText = responseRaw.data
+    } catch (error) {
+      log.error(`[onSave] /api/saveRawImage: ${error}`)
+      SC.showErrorPanel('Failed to save raw image.')
+    }
+
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = C.GRID_IMAGE_WIDTH
+      canvas.height = C.GRID_IMAGE_HEIGHT
+      const imageTensor = I.normaliseGridImage(imageData)
+      await tf.browser.toPixels(imageTensor, canvas)
+      const dataUrlNormalised = canvas.toDataURL('image/png')
+      log.info(`Saving normalised image...`)
+      await axios.post('/api/saveNormalisedImage', { dataUrl: dataUrlNormalised })
+    } catch (error) {
+      log.error(`[onSave] /api/saveNormalisedImage: ${error}`)
+      SC.showErrorPanel('Failed to save normalised image.')
+    }
   }
 
   const onClear = () => {
@@ -492,27 +504,12 @@ const onPredictDigits = async () => {
   }
 }
 
-const toRows = indexedDigitPredictions =>
-  indexedDigitPredictions.map(({ digitPrediction, index }) => ({
-    coords: {
-      row: Math.trunc(index / 9),
-      col: index % 9
-    },
-    isInitialValue: true,
-    value: digitPrediction
-  }))
-
 const drawSudokuGrid = (parentElement, indexedDigitPredictions) => {
-  const rows = toRows(indexedDigitPredictions)
   const svgElement = DS.createSvgElement('svg', { 'class': 'sudoku-grid' })
   parentElement.appendChild(svgElement)
+  const rows = P.indexedDigitPredictionstToRows(indexedDigitPredictions)
   DS.drawInitialGrid(svgElement, rows)
-  const allChars = R.range(0, 81).map(index => {
-    const indexedDigitPrediction = indexedDigitPredictions.find(R.propEq('index', index))
-    return indexedDigitPrediction ? indexedDigitPrediction.digitPrediction.toString() : C.SPACE
-  })
-  const rowsOfChars = R.splitEvery(9, allChars)
-  const initialValues = rowsOfChars.map(R.join(''))
+  const initialValues = P.indexedDigitPredictionsToInitialValues(indexedDigitPredictions)
   const solutions = solve(initialValues)
   if (solutions.length === 1) {
     DS.drawSolution(svgElement, solutions[0])
@@ -609,16 +606,15 @@ const onPredictCapture = async () => {
     const gridSquareImageTensors = D.cropGridSquaresFromUnknownGrid(
       gridImageTensor,
       boundingBox)
-    const gridSquareImageTensorsArray = tf.unstack(gridSquareImageTensors)
     performance.mark('distinguish blanks vs digits')
     const blanksPredictionsArray = models.blanks.model.predict(gridSquareImageTensors).arraySync()
     if (blanksPredictionsArray.some(isBlankPredictionTooInaccurate)) {
       throw new Error('Prediction of blanks vs digits too inaccurate to proceed.')
     }
+    const gridSquareImageTensorsArray = tf.unstack(gridSquareImageTensors)
     const indexedDigitImageTensorsArray = gridSquareImageTensorsArray
       .map((digitImageTensor, index) => ({ digitImageTensor, index }))
       .filter(({ index }) => !isBlank(blanksPredictionsArray[index]))
-    // TODO: it would be clearer to use a Map from digit indices to grid square indices
     const digitImageTensorsArray = R.pluck('digitImageTensor', indexedDigitImageTensorsArray)
     const inputs = tf.stack(digitImageTensorsArray)
     performance.mark('recognise digits')
@@ -636,8 +632,11 @@ const onPredictCapture = async () => {
     performance.mark('predict capture end')
     const marks = performance.getEntriesByType('mark')
     marks.forEach(mark => log.info(JSON.stringify(mark)))
+    const transformedMarks = marks
+      .map(mark => R.pick(['name', 'startTime'], mark))
+      .map(({ name, startTime }) => ({ name, startTime: startTime - marks[0].startTime }))
     const messageArea = document.getElementById('message-area')
-    messageArea.innerText = JSON.stringify(marks.map(mark => R.pick(['name', 'startTime'], mark)), null, 2)
+    messageArea.innerText = JSON.stringify(transformedMarks, null, 2)
     performance.clearMarks()
   } catch (error) {
     log.error(`[onPredictCapture] ${error.message}`)

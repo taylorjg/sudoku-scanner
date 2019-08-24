@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import * as R from 'ramda'
 import * as C from './constants'
 import * as I from './image'
-import * as U from './utils'
+import * as P from './puzzle'
 import * as CALC from './calculations'
 import puzzles from '../data/puzzles.json'
 
@@ -22,7 +22,7 @@ export const cropGridSquaresFromKnownGrid = (gridImageTensor, puzzleId, bounding
   const puzzle = puzzles.find(R.propEq('id', puzzleId))
   const gridSquares = CALC.calculateGridSquares(boundingBox)
   const blanksFilter = options.removeBlanks ? ({ isBlank }) => !isBlank : R.T
-  const gridSquaresWithDetails = U.flattenInitialValues(puzzle.initialValues)
+  const gridSquaresWithDetails = P.flattenInitialValues(puzzle.initialValues)
     .map((char, index) => ({
       isBlank: char === C.SPACE,
       digit: Number(char),
