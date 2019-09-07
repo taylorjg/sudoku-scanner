@@ -359,7 +359,6 @@ const onTrainBlanks = async () => {
     models.blanks.model = createBlanksModel()
     await trainBlanks(models.blanks.model)
     models.blanks.trained = true // eslint-disable-line
-    updateButtonStates()
   } catch (error) {
     log.error(`[onTrainBlanks] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -376,7 +375,6 @@ const onTrainDigits = async () => {
     models.digits.model = createDigitsModel()
     await trainDigits(models.digits.model)
     models.digits.trained = true // eslint-disable-line
-    updateButtonStates()
   } catch (error) {
     log.error(`[onTrainDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -399,7 +397,6 @@ const onPredictGrid = async () => {
       return boundingBox
     })
     await Promise.all(promises)
-    updateButtonStates()
   } catch (error) {
     log.error(`[onPredictGrid] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -461,7 +458,6 @@ const onPredictBlanks = async () => {
     const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
     const classNames = ['Blank', 'Digit']
     tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
-    updateButtonStates()
   } catch (error) {
     log.error(`[onPredictBlanks] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -497,7 +493,6 @@ const onPredictDigits = async () => {
     const surface = getVisor().surface({ name: 'Accuracy', tab: 'Evaluation' })
     const classNames = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
     tfvis.show.perClassAccuracy(surface, classAccuracy, classNames)
-    updateButtonStates()
   } catch (error) {
     log.error(`[onPredictDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -569,7 +564,6 @@ const onPredictBlanksDigits = async () => {
       const boundingBox = item.boundingBox
       await predictBlanksDigitsCommon(item, gridImageTensor, boundingBox, parentElement)
     }
-    updateButtonStates()
   } catch (error) {
     log.error(`[onPredictBlanksDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -588,7 +582,6 @@ const onPredictGridBlanksDigits = async () => {
       const boundingBox = await findBoundingBox(gridImageTensor)
       await predictBlanksDigitsCommon(item, gridImageTensor, boundingBox, parentElement)
     }
-    updateButtonStates()
   } catch (error) {
     log.error(`[onPredictGridBlanksDigits] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -628,7 +621,6 @@ const onPredictCapture = async () => {
     U.deleteChildren(parentElement)
     setWebcamMode(WEBCAM_MODE_SOLUTION)
     drawSudokuGrid(parentElement, indexedDigitPredictions)
-    updateButtonStates()
     performance.mark('predict capture end')
     const marks = performance.getEntriesByType('mark')
     marks.forEach(mark => log.info(JSON.stringify(mark)))
@@ -662,7 +654,6 @@ const onLoadModel = name => async () => {
     log.info(`Loading model ${name}...`)
     models[name].model = await tf.loadLayersModel(`${location.origin}/models/${name}/model.json`)
     models[name].trained = true
-    updateButtonStates()
   } catch (error) {
     log.error(`[onLoadModel(${name})] ${error.message}`)
     SC.showErrorPanel(error.message)
@@ -709,6 +700,11 @@ const updateButtonStates = () => {
   showVisorBtn.disabled = !visor
 }
 
+const onIdle = () => {
+  updateButtonStates()
+  requestAnimationFrame(onIdle)
+}
+
 SC.addTrainingSection('blanks', onTrainBlanks, onSaveModel, onLoadModel)
 SC.addTrainingSection('digits', onTrainDigits, onSaveModel, onLoadModel)
 
@@ -719,10 +715,7 @@ SC.addPredictionSection('blanks-digits', onPredictBlanksDigits)
 SC.addPredictionSection('grid-blanks-digits', onPredictGridBlanksDigits)
 
 document.querySelectorAll('.clear-btn').forEach(clearBtn =>
-  clearBtn.addEventListener('click', () => {
-    visor && visor.close()
-    updateButtonStates()
-  }))
+  clearBtn.addEventListener('click', () => visor && visor.close()))
 
 const predictCaptureBtn = document.getElementById('predict-capture-btn')
 predictCaptureBtn.addEventListener('click', onPredictCapture)
@@ -730,11 +723,10 @@ predictCaptureBtn.addEventListener('click', onPredictCapture)
 const showVisorBtn = document.getElementById('show-visor-btn')
 showVisorBtn.addEventListener('click', () => visor && visor.open())
 
-updateButtonStates()
-
 const main = async () => {
   drawGuides()
   initialiseCamera()
+  onIdle()
 }
 
 main()
