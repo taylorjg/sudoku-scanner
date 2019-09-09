@@ -49,17 +49,17 @@ These are some of my major TODO items:
 * Instead of using a trial and error process of capturing images and trying to scan them, automatically
 try to scan an image from the video stream and stop the camera once a convincing match has been found
 * Take the results of this repo and feed them into [sudoku-buster](https://github.com/taylorjg/sudoku-buster)
-  * The idea is for `sudoku-buster` to be a polished Sudoku scanning/solving project whereas this repo is a laboratory experiment
+  * The idea is for `sudoku-buster` to be a polished Sudoku scanning/solving web app whereas this repo is a laboratory experiment
 * Persevere with trying to train a model to find the bounding box of a Sudoku puzzle so that everything is done via TensorFlow.js and I no longer need to bring in OpenCV.js (which is massive)
 
 # Links
 
 * Tensorflow.js
   * [TensorFlow.js](https://www.tensorflow.org/js)
-  * [TensorFlow.js API Reference](https://js.tensorflow.org/api/1.2.7/)
+  * [TensorFlow.js API Reference](https://js.tensorflow.org/api/latest/)
 * OpenCV
   * [OpenCV](https://opencv.org/)
-  * [OpenCV: OpenCV.js Tutorials](https://docs.opencv.org/3.4/d5/d10/tutorial_js_root.html)
+  * [OpenCV: OpenCV.js Tutorials](https://docs.opencv.org/4.1.1/d5/d10/tutorial_js_root.html)
   * [OpenCV: OpenCV modules](https://docs.opencv.org/4.1.1/)
 * sudoku-buster
   * [GitHub](https://github.com/taylorjg/sudoku-buster)
