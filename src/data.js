@@ -51,14 +51,10 @@ export const cropGridSquaresFromUnknownGrid = (gridImageTensor, boundingBox) => 
   return tf.image.cropAndResize(image, boxes, boxInd, cropSize)
 }
 
-const createOneHotDigitLabels = gridSquaresWithDetails => {
-  const oneBasedDigits = R.pluck('digit', gridSquaresWithDetails)
-  const zeroBasedDigits = R.map(R.dec, oneBasedDigits)
-  return tf.oneHot(zeroBasedDigits, 9)
+const createOneHotCellsLabels = gridSquaresWithDetails => {
+  const values = gridSquaresWithDetails.map(({ isBlank, digit }) => isBlank ? 0 : digit)
+  return tf.oneHot(values, 10)
 }
-
-const createBlankOrNotBlankLabels = gridSquaresWithDetails =>
-  tf.tensor1d(gridSquaresWithDetails.map(({ isBlank }) => isBlank ? 1 : 0))
 
 export const cropGridSquaresFromGrid = (item, gridImageTensor) =>
   cropGridSquaresFromKnownGrid(
@@ -67,18 +63,7 @@ export const cropGridSquaresFromGrid = (item, gridImageTensor) =>
     item.boundingBox,
     {
       removeBlanks: false,
-      createLabels: createBlankOrNotBlankLabels
-    }
-  )
-
-export const cropDigitsFromGrid = (item, gridImageTensor) =>
-  cropGridSquaresFromKnownGrid(
-    gridImageTensor,
-    item.puzzleId,
-    item.boundingBox,
-    {
-      removeBlanks: true,
-      createLabels: createOneHotDigitLabels
+      createLabels: createOneHotCellsLabels
     }
   )
 
@@ -108,13 +93,5 @@ export const loadGridSquaresFromKnownGrids = data =>
     data,
     {
       removeBlanks: false,
-      createLabels: createBlankOrNotBlankLabels
-    })
-
-export const loadDigitsFromKnownGrids = data =>
-  loadKnownGridsAndCropGridSquares(
-    data,
-    {
-      removeBlanks: true,
-      createLabels: createOneHotDigitLabels
+      createLabels: createOneHotCellsLabels
     })
